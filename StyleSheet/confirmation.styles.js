@@ -3,13 +3,17 @@ import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#F4F2F2',
   },
-  header: {
-    height: 180,
+  HeaderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 999,
   },
   headerOverlay: {
-    height: 180,
+    height: 150,
     position: 'relative',
     justifyContent: 'center',
   },

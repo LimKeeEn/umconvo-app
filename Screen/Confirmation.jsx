@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ImageBackground,
   TouchableOpacity,
   ScrollView,
@@ -19,17 +18,16 @@ const tasks = [
 ];
 
 const Confirmation = () => {
-  const progress = 0 / tasks.length; // Adjust logic as needed
+  const progress = 0 / tasks.length;
 
   const handleTaskPress = (taskTitle) => {
     console.log(`Pressed: ${taskTitle}`);
-    // You can navigate or open modals here
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Header */}
+    <View style={{ flex: 1 }}>
+      {/* Fixed Header */}
+      <View style={styles.HeaderContainer}>
         <ImageBackground
           source={require('../assets/Started_1.png')}
           style={styles.header}
@@ -49,7 +47,13 @@ const Confirmation = () => {
             </TouchableOpacity>
           </View>
         </ImageBackground>
+      </View>
 
+      {/* Scrollable Content */}
+      <ScrollView
+        style={[styles.container, { marginTop: 150 }]} // Same height as header
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
         {/* Progress */}
         <View style={styles.progressSection}>
           <Text style={styles.progressText}>0%</Text>

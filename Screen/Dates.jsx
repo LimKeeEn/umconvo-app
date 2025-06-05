@@ -6,6 +6,7 @@ import {
   ImageBackground,
   TouchableOpacity,
   ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../StyleSheet/dates.styles.js';
@@ -52,72 +53,80 @@ const Dates = () => {
   const currentDates = view === 'past' ? pastDates : upcomingDates;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
-      {/* Header Section */}
-      <ImageBackground
-        source={require('../assets/Started_1.png')}
-        style={styles.header}
-        resizeMode="cover"
-      >
-        <View style={styles.headerOverlay}>
-          <View style={styles.headerBackground} />
-
-          <TouchableOpacity style={styles.menuOverlay}>
-            <Ionicons name="menu" size={28} color="white" />
-          </TouchableOpacity>
-
-          <Text style={styles.headerText}>IMPORTANT DATES</Text>
-
-          <TouchableOpacity style={styles.notOverlay}>
-            <Ionicons name="notifications-outline" size={28} color="white" />
-          </TouchableOpacity>
-        </View>
-      </ImageBackground>
-
-      {/* Toggle Buttons */}
-      <View style={styles.switchContainer}>
-        <TouchableOpacity
-          style={[styles.switchButton, view === 'past' && styles.activeSwitch]}
-          onPress={() => setView('past')}
+    <SafeAreaView style={{ flex: 1 }}>
+      {/* Fixed Header */}
+      <View style={styles.HeaderContainer}>
+        <ImageBackground
+          source={require('../assets/Started_1.png')}
+          style={styles.header}
+          resizeMode="cover"
         >
-          <Text style={styles.switchText}>Past</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.switchButton, view === 'upcoming' && styles.activeSwitch]}
-          onPress={() => setView('upcoming')}
-        >
-          <Text style={styles.switchText}>Upcoming</Text>
-        </TouchableOpacity>
+          <View style={styles.headerOverlay}>
+            <View style={styles.headerBackground} />
+
+            <TouchableOpacity style={styles.menuOverlay}>
+              <Ionicons name="menu" size={28} color="white" />
+            </TouchableOpacity>
+
+            <Text style={styles.headerText}>IMPORTANT DATES</Text>
+
+            <TouchableOpacity style={styles.notOverlay}>
+              <Ionicons name="notifications-outline" size={28} color="white" />
+            </TouchableOpacity>
+          </View>
+        </ImageBackground>
       </View>
 
-      {/* Dates Card List */}
-      {currentDates.map((item, index) => {
-        const color =
-          view === 'past'
-            ? '#4CAF50' // Green
-            : index === 0
-            ? '#F44336' // Red for nearest
-            : '#FFEB3B'; // Yellow for later
+      {/* Scrollable Content */}
+      <ScrollView
+        style={[styles.container, { marginTop: 90 }]}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      >
+        {/* Toggle Buttons */}
+        <View style={styles.switchContainer}>
+          <TouchableOpacity
+            style={[styles.switchButton, view === 'past' && styles.activeSwitch]}
+            onPress={() => setView('past')}
+          >
+            <Text style={styles.switchText}>Past</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.switchButton, view === 'upcoming' && styles.activeSwitch]}
+            onPress={() => setView('upcoming')}
+          >
+            <Text style={styles.switchText}>Upcoming</Text>
+          </TouchableOpacity>
+        </View>
 
-        return (
-          <View key={index} style={styles.card}>
-            <View style={[styles.sideBar, { backgroundColor: color }]} />
-            <View style={styles.cardContent}>
-              <Text style={styles.title}>{item.title}</Text>
-              <View style={styles.infoRow}>
-                <Ionicons name="calendar-outline" size={16} />
-                <Text style={styles.infoText}>{item.date}</Text>
+        {/* Dates Card List */}
+        {currentDates.map((item, index) => {
+          const color =
+            view === 'past'
+              ? '#4CAF50'
+              : index === 0
+              ? '#F44336'
+              : '#FFEB3B';
+
+          return (
+            <View key={index} style={styles.card}>
+              <View style={[styles.sideBar, { backgroundColor: color }]} />
+              <View style={styles.cardContent}>
+                <Text style={styles.title}>{item.title}</Text>
+                <View style={styles.infoRow}>
+                  <Ionicons name="calendar-outline" size={16} />
+                  <Text style={styles.infoText}>{item.date}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Ionicons name="location-outline" size={16} />
+                  <Text style={styles.infoText}>{item.location}</Text>
+                </View>
               </View>
-              <View style={styles.infoRow}>
-                <Ionicons name="location-outline" size={16} />
-                <Text style={styles.infoText}>{item.location}</Text>
-              </View>
+              <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
             </View>
-            <Ionicons name="chevron-forward" size={20} style={styles.chevron} />
-          </View>
-        );
-      })}
-    </ScrollView>
+          );
+        })}
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

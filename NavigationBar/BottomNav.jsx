@@ -6,11 +6,7 @@ import HomePage from '../Screen/HomePage';
 import Dates from '../Screen/Dates'; 
 import Confirmation from '../Screen/Confirmation'; 
 import Services from '../Screen/Services'; 
-
-const Navigation = () => 
-  <View style={styles.screen}>
-    <Text>Navigation</Text>
-  </View>;
+import Navigation from '../Screen/Navigation'; 
 
 const Tab = createBottomTabNavigator();
 
