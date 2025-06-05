@@ -13,17 +13,43 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "host.exp.exponent",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "umconvoapp",
+              "com.googleusercontent.apps.378967716917-8cvh67gtcel268vl0k5cup07ld2nikbm"
+            ]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.kee_en.UMConvoApp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-web-browser",
+      [
+        "@react-native-google-signin/google-signin",{
+          "iosUrlScheme": "com.googleusercontent.apps.378967716917-8cvh67gtcel268vl0k5cup07ld2nikbm"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "84debcc5-87cc-43de-9adc-85593eb31ea5"
+      }
+    },
+    "scheme": "umconvoapp"
   }
 }
