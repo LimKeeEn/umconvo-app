@@ -59,7 +59,7 @@ const Services = () => {
               <Ionicons name="menu" size={28} color="white" />
             </TouchableOpacity>
 
-            <Text style={styles.headerText}>HOME</Text>
+            <Text style={styles.headerText}>SERVICES</Text>
 
             <TouchableOpacity style={styles.notOverlay}>
               <Ionicons name="notifications-outline" size={28} color="white" />

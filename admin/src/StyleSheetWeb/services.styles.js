@@ -1,7 +1,7 @@
 const styles = {
   container: {
     padding: '20px',
-    backgroundColor: '#f7fafc', // similar to Tailwind's bg-gray-100
+    backgroundColor: '#f7fafc',
     minHeight: '95vh',
   },
   header: {
@@ -14,9 +14,10 @@ const styles = {
     backgroundColor:'white',
   },
   heading: {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    color: '#192F59'
+    fontSize: "2rem",
+    fontWeight: "bold",
+    color: "#13274f",
+    margin: 0,
   },
   buttonGroup: {
     display: 'flex',

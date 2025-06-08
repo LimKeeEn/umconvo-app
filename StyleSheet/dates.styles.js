@@ -106,6 +106,136 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     color: '#555',
   },
+  modalOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(0, 0, 0, 0.5)",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 20,
+},
+
+modalContent: {
+  width: "100%",
+  maxHeight: "90%",
+  backgroundColor: "#fff",
+  borderRadius: 16,
+  paddingVertical: 20,
+  paddingHorizontal: 20,
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.25,
+  shadowRadius: 6,
+  elevation: 5,
+},
+
+modalHeader: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: 10,
+  borderBottomWidth: 1,
+  borderColor: "#eee",
+  paddingBottom: 8,
+},
+
+modalTitle: {
+  fontSize: 18,
+  fontWeight: "700",
+  color: "#13274f",
+},
+
+closeButton: {
+  padding: 6,
+},
+
+modalBody: {
+  flexGrow: 1,
+  marginBottom: 10,
+},
+
+modalFooter: {
+  marginTop: 10,
+  alignItems: "center",
+},
+
+closeModalButton: {
+  paddingVertical: 12,
+  paddingHorizontal: 30,
+  backgroundColor: "#13274f",
+  borderRadius: 30,
+},
+
+closeModalButtonText: {
+  color: "#fff",
+  fontWeight: "600",
+  fontSize: 16,
+},
+
+detailSection: {
+  marginBottom: 16,
+  padding: 12,
+  backgroundColor: "#f9f9f9",
+  borderRadius: 10,
+},
+
+detailLabel: {
+  fontSize: 13,
+  color: "#777",
+  marginBottom: 4,
+  fontWeight: "600",
+},
+
+detailValue: {
+  fontSize: 15,
+  color: "#333",
+},
+
+detailRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+},
+
+statusContainer: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+},
+
+statusDot: {
+  width: 10,
+  height: 10,
+  borderRadius: 5,
+},
+
+statusText: {
+  fontSize: 14,
+  fontWeight: "500",
+},
+
+pdfButton: {
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#13274f",
+  padding: 12,
+  borderRadius: 10,
+  gap: 12,
+},
+
+pdfButtonContent: {
+  flex: 1,
+},
+
+pdfButtonTitle: {
+  color: "white",
+  fontWeight: "600",
+  fontSize: 15,
+},
+
+pdfButtonSubtitle: {
+  color: "#ddd",
+  fontSize: 12,
+},
 });
 
 export default styles;
