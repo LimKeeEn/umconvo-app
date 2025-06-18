@@ -66,24 +66,52 @@ const Dates = () => {
 
   // Filter dates based on current view (past/upcoming)
   const filterDates = () => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
     return dates
       .filter((date) => {
-        const dateObj = new Date(date.date)
-        dateObj.setHours(0, 0, 0, 0)
-
-        const isPast = dateObj < today
-        return view === "past" ? isPast : !isPast
+        const startDate = new Date(date.date);
+        startDate.setHours(0, 0, 0, 0);
+        
+        // For events with end time
+        if (date.time) {
+          const endTime = new Date(date.time);
+          
+          // Ongoing event (current date is between start and end)
+          const isOngoing = today >= startDate && today <= endTime;
+          
+          // Past event (both start and end are in past)
+          const isPast = today > endTime;
+          
+          // Future event (both start and end are in future)
+          const isFuture = today < startDate;
+          
+          if (view === "past") {
+            return isPast;
+          } else { // upcoming view
+            return isOngoing || isFuture;
+          }
+        } 
+        // For all-day events (no end time)
+        else {
+          const isPast = today > startDate;
+          const isToday = today.getTime() === startDate.getTime();
+          
+          if (view === "past") {
+            return isPast && !isToday; // Exclude today from past
+          } else { // upcoming view
+            return !isPast || isToday; // Include today and future
+          }
+        }
       })
       .sort((a, b) => {
         // Sort upcoming dates in ascending order, past dates in descending
-        const dateA = new Date(a.date)
-        const dateB = new Date(b.date)
-        return view === "upcoming" ? dateA - dateB : dateB - dateA
-      })
-  }
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return view === "upcoming" ? dateA - dateB : dateB - dateA;
+      });
+  };
 
   const currentDates = filterDates()
 
@@ -105,23 +133,44 @@ const Dates = () => {
   }
 
   // Get color based on date
-  const getDateColor = (dateString) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const itemDate = new Date(dateString)
-    itemDate.setHours(0, 0, 0, 0)
+  const getDateColor = (dateString, timeString) => {
+    const now = new Date();
+    const startDate = new Date(dateString);
+    startDate.setHours(0, 0, 0, 0);
 
-    const diffTime = itemDate.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return "#4CAF50" // Green for past dates
-    } else if (diffDays <= 7) {
-      return "#F44336" // Red for upcoming dates (within 7 days)
-    } else {
-      return "#FFC107" // Yellow for later upcoming dates
+    // For events with end time
+    if (timeString) {
+      const endTime = new Date(timeString);
+      
+      // Ongoing event (current time is between start and end)
+      if (now >= startDate && now <= endTime) {
+        return "#F44336"; // Red for ongoing
+      }
+      // Future event (both start and end are in future)
+      else if (now < startDate) {
+        const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+        return diffDays <= 7 ? "#F44336" : "#FFC107"; // Red for ≤7 days, Yellow for >7
+      }
+      // Past event (both start and end are in past)
+      else {
+        return "#4CAF50"; // Green for past
+      }
+    } 
+    // For all-day events (no end time)
+    else {
+      const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) {
+        return "#4CAF50"; // Green for past
+      } 
+      else if (diffDays === 0) {
+        return "#F44336"; // Red for today
+      }
+      else {
+        return diffDays <= 7 ? "#F44336" : "#FFC107"; // Red for ≤7 days, Yellow for >7
+      }
     }
-  }
+  };
 
   // Handle date item press
   const handleDatePress = (date) => {
@@ -221,7 +270,7 @@ const Dates = () => {
         {/* Dates Card List */}
         {currentDates.length > 0 ? (
           currentDates.map((item, index) => {
-            const color = getDateColor(item.date)
+            const color = getDateColor(item.date, item.time)
 
             return (
               <TouchableOpacity
@@ -230,7 +279,9 @@ const Dates = () => {
                 onPress={() => handleDatePress(item)}
                 activeOpacity={0.7}
               >
+                {/* Sidebar with the same color */}
                 <View style={[styles.sideBar, { backgroundColor: color }]} />
+                
                 <View style={styles.cardContent}>
                   <Text style={styles.title} numberOfLines={2}>
                     {item.title}
@@ -308,31 +359,23 @@ const Dates = () => {
                   <View style={styles.detailSection}>
                     <Text style={styles.detailLabel}>STATUS</Text>
                     <View style={styles.statusContainer}>
-                      <View style={[styles.statusDot, { backgroundColor: getDateColor(selectedDate.date) }]} />
+                      <View style={[styles.statusDot, { backgroundColor: getDateColor(selectedDate.date, selectedDate.time) }]} />
                       <Text style={styles.statusText}>
                         {(() => {
-                          const now = new Date()
-                          const start = new Date(selectedDate.date)
-                          let end = null
-
-                          if (selectedDate.time) {
-                            end = new Date(selectedDate.time)
-                          }
-
-                          if (end) {
-                            if (now > end) return "Past Event"
-                            if (now >= start && now <= end) return "On Going Event"
-                            if (now < start) return "Upcoming Event"
+                          const color = getDateColor(selectedDate.date, selectedDate.time);
+                          if (color === "#F44336") {
+                            const now = new Date();
+                            const start = new Date(selectedDate.date);
+                            const end = selectedDate.time ? new Date(selectedDate.time) : null;
+                            
+                            if (end && now >= start && now <= end) {
+                              return "Ongoing Event";
+                            }
+                            return "Upcoming Soon (≤7 days)";
+                          } else if (color === "#FFC107") {
+                            return "Upcoming Later (>7 days)";
                           } else {
-                            // No end time provided, treat it as a 1-day event
-                            const startDay = new Date(start)
-                            startDay.setHours(0, 0, 0, 0)
-                            const endOfDay = new Date(start)
-                            endOfDay.setHours(23, 59, 59, 999)
-
-                            if (now > endOfDay) return "Past Event"
-                            if (now >= startDay && now <= endOfDay) return "On Going Event"
-                            return "Upcoming Event"
+                            return "Past Event";
                           }
                         })()}
                       </Text>

@@ -106,6 +106,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     height: '28rem',
+    width: '100%',
     color: '#a0aec0', // gray-400
     transition: 'border-color 0.3s ease',
     marginLeft: '30px'

@@ -143,21 +143,42 @@ const ImportantDates = () => {
   }
 
   // Get color based on date
-  const getDateColor = (dateString) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const itemDate = new Date(dateString)
-    itemDate.setHours(0, 0, 0, 0)
+  const getDateColor = (dateString, timeString) => {
+    const now = new Date();
+    const startDate = new Date(dateString);
+    startDate.setHours(0, 0, 0, 0);
 
-    const diffTime = itemDate.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) {
-      return "#10b981" // Green for past dates
-    } else if (diffDays <= 7) {
-      return "#ef4444" // Red for upcoming dates (within 7 days)
-    } else {
-      return "#f59e0b" // Yellow for later upcoming dates
+    // For events with time component
+    if (timeString) {
+      const endTime = new Date(timeString);
+      
+      // Ongoing event (current time is between start and end)
+      if (now >= startDate && now <= endTime) {
+        return "#F44336"; // Red for ongoing
+      }
+      // Future event
+      else if (now < startDate) {
+        const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+        return diffDays <= 7 ? "#F44336" : "#FFC107"; // Red for ≤7 days, Yellow for >7
+      }
+      // Past event
+      else {
+        return "#4CAF50"; // Green for past
+      }
+    } 
+    // For all-day events (no time specified)
+    else {
+      const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays < 0) {
+        return "#4CAF50"; // Green for past
+      } 
+      else if (diffDays === 0) {
+        return "#F44336"; // Red for today
+      }
+      else {
+        return diffDays <= 7 ? "#F44336" : "#FFC107"; // Red for ≤7 days, Yellow for >7
+      }
     }
   }
 
@@ -870,18 +891,13 @@ const ImportantDates = () => {
           {filteredDates.map((date) => (
             <div
               key={date.id}
-              onDragOver={handleDragOver}
-              onDragEnter={(e) => handleDragEnter(e, date)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, date)}
-              onClick={() => handleViewDate(date)}
-              style={{
-                ...styles.dateItem,
-                ...styles.dateItemClickable,
-                borderLeft: `4px solid ${getDateColor(date.date)}`,
-                ...(draggedItem?.id === date.id ? styles.dateItemDragging : {}),
-                ...(dragOverItem?.id === date.id && draggedItem?.id !== date.id ? styles.dateItemDragOver : {}),
-              }}
+                style={{
+                  ...styles.dateItem,
+                  ...styles.dateItemClickable,
+                  borderLeft: `4px solid ${getDateColor(date.date, date.time)}`, // Updated this line
+                  ...(draggedItem?.id === date.id ? styles.dateItemDragging : {}),
+                  ...(dragOverItem?.id === date.id && draggedItem?.id !== date.id ? styles.dateItemDragOver : {}),
+                }}
               onMouseEnter={handleDateItemHover}
               onMouseLeave={handleDateItemLeave}
             >

@@ -81,8 +81,12 @@ const styles = StyleSheet.create({
   },
   sideBar: {
     width: 6,
+    height: '100%',
+    position: 'absolute',
+    left: 0,
+    top: 0,
     borderTopLeftRadius: 10,
-    borderBottomLeftRadius: 10,
+    borderBottomLeftRadius: 10
   },
   cardContent: {
     flex: 1,
