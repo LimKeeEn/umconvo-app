@@ -29,7 +29,7 @@ const Dates = () => {
     const fetchDates = async () => {
       try {
         setLoading(true)
-        // Replace with your actual Firebase REST API endpoint
+        //Firebase REST API endpoint
         const response = await fetch(
           `https://firestore.googleapis.com/v1/projects/umconvo-app/databases/(default)/documents/importantDates?orderBy=createdAt`,
         )

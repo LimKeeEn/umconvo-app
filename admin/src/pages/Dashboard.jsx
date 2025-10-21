@@ -2,10 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Mail, Settings, Calendar, MapPin, Users, GraduationCap, Clock, Edit } from "lucide-react"
-import styles from '../StyleSheetWeb/dashboard.styles.js';
 
 const Dashboard = () => {
-  const [currentTime, setCurrentTime] = useState(new Date())
   const [countdown, setCountdown] = useState({
     daysTens: 0,
     daysUnits: 0,
@@ -17,93 +15,22 @@ const Dashboard = () => {
     secondsUnits: 0,
   })
 
-  // Helper to split numbers into tens and units
   const splitNumber = (number) => ({
     tens: Math.floor(number / 10),
     units: number % 10,
   });
 
-  // Sample data - replace with your actual data source
-  const stats = [
-    {
-      title: "User Register",
-      current: 1256,
-      total: 1430,
-      icon: Users,
-      color: "#8b5cf6",
-    },
-    {
-      title: "Ceremony Attendance",
-      current: 1250,
-      total: 6,
-      icon: GraduationCap,
-      color: "#3b82f6",
-    },
-    {
-      title: "Gown Confirmation",
-      current: 1256,
-      total: 0,
-      icon: GraduationCap,
-      color: "#1f2937",
-    },
-    {
-      title: "Rehearsal Attendance",
-      current: 365,
-      total: 891,
-      icon: Users,
-      color: "#1f2937",
-    },
-  ]
-
-  const upcomingDeadlines = [
-    {
-      id: 1,
-      title: "Attendance Confirmation by UM Graduates",
-      date: "1 Nov - 17 Nov 2024",
-      location: "Confirmation Tab",
-      color: "#ef4444",
-    },
-    {
-      id: 2,
-      title: "Collection of Academic Attire (Gown)",
-      date: "16 - 17 Nov 2024",
-      time: "9:00am - 6:00pm",
-      location: "Experimental Building, UM / UMConvo Cyberjaya Campus, UM",
-      color: "#f59e0b",
-    },
-    {
-      id: 3,
-      title: "Collection of Academic Attire (Gown)",
-      date: "28 Nov 2024",
-      time: "2:30pm - 4:30pm",
-      location: "Dewan Tunku Canselor, UM",
-      color: "#f59e0b",
-    },
-  ]
-
-  const chartData = [
-    { value: 45, color: "#e5e7eb" },
-    { value: 75, color: "#1e40af" },
-    { value: 60, color: "#e5e7eb" },
-    { value: 55, color: "#1e40af" },
-    { value: 70, color: "#e5e7eb" },
-    { value: 65, color: "#1e40af" },
-    { value: 80, color: "#e5e7eb" },
-  ]
-
-  // Update countdown timer
   useEffect(() => {
-    const targetDate = new Date("2024-12-01T00:00:00") // Set your target date
-
+    const targetDate = new Date("2024-12-01T00:00:00")
     const timer = setInterval(() => {
       const now = new Date().getTime()
       const distance = targetDate.getTime() - now
 
       if (distance > 0) {
-        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24))
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000)
 
         setCountdown({
           daysTens: splitNumber(days).tens,
@@ -114,52 +41,80 @@ const Dashboard = () => {
           minutesUnits: splitNumber(minutes).units,
           secondsTens: splitNumber(seconds).tens,
           secondsUnits: splitNumber(seconds).units,
-        });
-      } else {
-        setCountdown({
-          daysTens: 0,
-          daysUnits: 0,
-          hoursTens: 0,
-          hoursUnits: 0,
-          minutesTens: 0,
-          minutesUnits: 0,
-          secondsTens: 0,
-          secondsUnits: 0,
-        });
+        })
       }
-    }, 1000);
+    }, 1000)
 
     return () => clearInterval(timer)
   }, [])
 
+  const stats = [
+    { title: "User Register", current: 1256, total: 1430, icon: Users, color: "violet" },
+    { title: "Ceremony Attendance", current: 1250, total: 6, icon: GraduationCap, color: "blue" },
+    { title: "Gown Confirmation", current: 1256, total: 0, icon: GraduationCap, color: "gray" },
+    { title: "Rehearsal Attendance", current: 365, total: 891, icon: Users, color: "gray" },
+  ]
+
+  const upcomingDeadlines = [
+    {
+      id: 1,
+      title: "Attendance Confirmation by UM Graduates",
+      date: "1 Nov - 17 Nov 2024",
+      location: "Confirmation Tab",
+      color: "red",
+    },
+    {
+      id: 2,
+      title: "Collection of Academic Attire (Gown)",
+      date: "16 - 17 Nov 2024",
+      time: "9:00am - 6:00pm",
+      location: "Experimental Building, UM / UMConvo Cyberjaya Campus, UM",
+      color: "yellow",
+    },
+    {
+      id: 3,
+      title: "Collection of Academic Attire (Gown)",
+      date: "28 Nov 2024",
+      time: "2:30pm - 4:30pm",
+      location: "Dewan Tunku Canselor, UM",
+      color: "yellow",
+    },
+  ]
+
+  const chartData = [
+    { value: 45, color: "bg-gray-200" },
+    { value: 75, color: "bg-blue-900" },
+    { value: 60, color: "bg-gray-200" },
+    { value: 55, color: "bg-blue-900" },
+    { value: 70, color: "bg-gray-200" },
+    { value: 65, color: "bg-blue-900" },
+    { value: 80, color: "bg-gray-200" },
+  ]
+
   return (
-    <div style={styles.container}>
-      {/* Main Content */}
-      <div style={styles.mainContent}>
-        <div style={styles.header}>
-          <h1 style={styles.pageTitle}>Dashboard</h1>
-          <div style={styles.headerIcons}>
-            <Mail style={styles.headerIcon} />
-            <Settings style={styles.headerIcon} />
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-[#13274f]">Dashboard</h1>
+          <div className="flex items-center gap-4">
+            <Mail className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
+            <Settings className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div style={styles.statsGrid}>
-          {stats.map((stat, index) => (
-            <div key={index} style={styles.statCard}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
+          {stats.map((stat, i) => (
+            <div key={i} className="flex items-center gap-4 p-6 bg-white rounded-xl shadow w-[270px]">
               <div
-                style={{
-                  ...styles.statIcon,
-                  backgroundColor: `${stat.color}20`,
-                  color: stat.color,
-                }}
+                className={`w-12 h-12 flex items-center justify-center rounded-lg bg-${stat.color}-100 text-${stat.color}-500`}
               >
                 <stat.icon size={24} />
               </div>
-              <div style={styles.statContent}>
-                <p style={styles.statTitle}>{stat.title}</p>
-                <p style={styles.statNumbers}>
+              <div>
+                <p className="text-sm text-gray-500 font-medium">{stat.title}</p>
+                <p className="text-2xl font-bold text-gray-800">
                   {stat.current} / {stat.total}
                 </p>
               </div>
@@ -167,105 +122,105 @@ const Dashboard = () => {
           ))}
         </div>
 
-        <div style={styles.contentGrid}>
-          <div>
-            {/* Countdown Section */}
-            <div style={styles.countdownContainer}>
-            <div style={styles.section}>
-              <div style={{ display: "flex", alignItems: "center", marginBottom: "24px" }}>
-                <h2 style={styles.sectionTitle}>Countdown</h2>
-                <Edit style={styles.editIcon} />
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left side */}
+          <div className="col-span-2 space-y-8">
+            {/* Countdown */}
+            <div className="bg-white rounded-xl shadow p-6">
+              <div className="flex items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-800">Countdown</h2>
+                <Edit className="w-5 h-5 text-gray-500 ml-auto cursor-pointer" />
               </div>
-              <div style={styles.countdownGrid}>
+              <div className="flex items-center justify-center gap-4">
                 {/* Days */}
-                <div style={styles.countdownBox}>
-                  <div style={styles.countdownNumberRow}>
-                    <div style={styles.countdownNumberContainer}>{countdown.daysTens}</div>
-                    <div style={styles.countdownNumberContainer}>{countdown.daysUnits}</div>
+                <div className="flex flex-col items-center">
+                  <div className="flex gap-2">
+                    <div className="w-14 h-20 flex items-center justify-center bg-gray-800 text-white rounded-lg text-2xl font-bold">
+                      {countdown.daysTens}
+                    </div>
+                    <div className="w-14 h-20 flex items-center justify-center bg-gray-800 text-white rounded-lg text-2xl font-bold">
+                      {countdown.daysUnits}
+                    </div>
                   </div>
-                  <p style={styles.countdownLabel}>Days</p>
+                  <p className="mt-2 text-sm text-gray-600">Days</p>
                 </div>
-                {/* Separator */}
-                <div style={styles.countdownSeparator}>:</div>
+                <span className="text-2xl text-gray-700">:</span>
                 {/* Hours */}
-                <div style={styles.countdownBox}>
-                  <div style={styles.countdownNumberRow}>
-                    <div style={styles.countdownNumberContainer}>{countdown.hoursTens}</div>
-                    <div style={styles.countdownNumberContainer}>{countdown.hoursUnits}</div>
+                <div className="flex flex-col items-center">
+                  <div className="flex gap-2">
+                    <div className="w-14 h-20 flex items-center justify-center bg-gray-800 text-white rounded-lg text-2xl font-bold">
+                      {countdown.hoursTens}
+                    </div>
+                    <div className="w-14 h-20 flex items-center justify-center bg-gray-800 text-white rounded-lg text-2xl font-bold">
+                      {countdown.hoursUnits}
+                    </div>
                   </div>
-                  <p style={styles.countdownLabel}>Hours</p>
+                  <p className="mt-2 text-sm text-gray-600">Hours</p>
                 </div>
-                {/* Separator */}
-                <div style={styles.countdownSeparator}>:</div>
+                <span className="text-2xl text-gray-700">:</span>
                 {/* Minutes */}
-                <div style={styles.countdownBox}>
-                  <div style={styles.countdownNumberRow}>
-                    <div style={styles.countdownNumberContainer}>{countdown.minutesTens}</div>
-                    <div style={styles.countdownNumberContainer}>{countdown.minutesUnits}</div>
+                <div className="flex flex-col items-center">
+                  <div className="flex gap-2">
+                    <div className="w-14 h-20 flex items-center justify-center bg-gray-800 text-white rounded-lg text-2xl font-bold">
+                      {countdown.minutesTens}
+                    </div>
+                    <div className="w-14 h-20 flex items-center justify-center bg-gray-800 text-white rounded-lg text-2xl font-bold">
+                      {countdown.minutesUnits}
+                    </div>
                   </div>
-                  <p style={styles.countdownLabel}>Minutes</p>
+                  <p className="mt-2 text-sm text-gray-600">Minutes</p>
                 </div>
-                {/* Separator */}
-                <div style={styles.countdownSeparator}>:</div>
+                <span className="text-2xl text-gray-700">:</span>
                 {/* Seconds */}
-                <div style={styles.countdownBox}>
-                  <div style={styles.countdownNumberRow}>
-                    <div style={styles.countdownNumberContainer}>{countdown.secondsTens}</div>
-                    <div style={styles.countdownNumberContainer}>{countdown.secondsUnits}</div>
+                <div className="flex flex-col items-center">
+                  <div className="flex gap-2">
+                    <div className="w-14 h-20 flex items-center justify-center bg-gray-800 text-white rounded-lg text-2xl font-bold">
+                      {countdown.secondsTens}
+                    </div>
+                    <div className="w-14 h-20 flex items-center justify-center bg-gray-800 text-white rounded-lg text-2xl font-bold">
+                      {countdown.secondsUnits}
+                    </div>
                   </div>
-                  <p style={styles.countdownLabel}>Seconds</p>
+                  <p className="mt-2 text-sm text-gray-600">Seconds</p>
                 </div>
               </div>
             </div>
-          </div>
 
-            {/* Statistics Chart */}
-            <div style={styles.section}>
-              <h2 style={styles.sectionTitle}>Statistics</h2>
-              <div style={styles.chartContainer}>
-                {chartData.map((bar, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      ...styles.chartBar,
-                      height: `${bar.value}%`,
-                      backgroundColor: bar.color,
-                    }}
-                  />
+            {/* Chart */}
+            <div className="bg-white rounded-xl shadow p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">Statistics</h2>
+              <div className="flex items-end gap-4 h-72">
+                {chartData.map((bar, i) => (
+                  <div key={i} className={`flex-1 rounded-t ${bar.color}`} style={{ height: `${bar.value}%` }}></div>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Upcoming Deadlines */}
-          <div style={styles.section}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: "24px" }}>
-              <h2 style={styles.sectionTitle}>Upcoming Deadlines</h2>
-              <Edit style={styles.editIcon} />
+          {/* Right side (Deadlines) */}
+          <div className="bg-white rounded-xl shadow p-6">
+            <div className="flex items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">Upcoming Deadlines</h2>
+              <Edit className="w-5 h-5 text-gray-500 ml-auto cursor-pointer" />
             </div>
-            <div style={styles.deadlinesList}>
+            <div className="flex flex-col gap-4">
               {upcomingDeadlines.map((deadline) => (
                 <div
                   key={deadline.id}
-                  style={{
-                    ...styles.deadlineItem,
-                    borderLeftColor: deadline.color,
-                  }}
+                  className={`p-4 bg-gray-50 border-l-4 rounded border-${deadline.color}-500`}
                 >
-                  <h3 style={styles.deadlineTitle}>{deadline.title}</h3>
-                  <div style={styles.deadlineDate}>
-                    <Calendar style={styles.deadlineIcon} />
-                    <span>{deadline.date}</span>
+                  <h3 className="text-sm font-semibold text-gray-800">{deadline.title}</h3>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                    <Calendar className="w-3 h-3" /> <span>{deadline.date}</span>
                   </div>
                   {deadline.time && (
-                    <div style={styles.deadlineDate}>
-                      <Clock style={styles.deadlineIcon} />
-                      <span>{deadline.time}</span>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                      <Clock className="w-3 h-3" /> <span>{deadline.time}</span>
                     </div>
                   )}
-                  <div style={styles.deadlineLocation}>
-                    <MapPin style={styles.deadlineIcon} />
-                    <span>{deadline.location}</span>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                    <MapPin className="w-3 h-3" /> <span>{deadline.location}</span>
                   </div>
                 </div>
               ))}
