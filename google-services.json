@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "868341431770",
+    "project_id": "umconvo-app",
+    "storage_bucket": "umconvo-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:868341431770:android:7826d9c66d20f3f4c294e3",
+        "android_client_info": {
+          "package_name": "com.UMConvoApp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "868341431770-fsccgud8l42r23nslb934sfns8hfiffp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.UMConvoApp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "868341431770-f06uasd307r3p5q2v4ree5lj1bpk1bc8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBWKUfD4c7sF-lCiDhboQqststdGf7VGXY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "868341431770-f06uasd307r3p5q2v4ree5lj1bpk1bc8.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "868341431770-8v1t0r0i1kde0vu991jt0f1d53t2gm97.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "host.exp.Exponent"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

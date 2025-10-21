@@ -6,15 +6,31 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "scheme": "umconvoapp",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    
+
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "redirectPatterns": [
+        "https://auth.expo.io/*", 
+        "umconvoapp://*"
+      ]
+    },
+
+    "plugins": [
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
+    ],
+    
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "host.exp.exponent",
+      "bundleIdentifier": "host.exp.exponent", 
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -32,24 +48,14 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.kee_en.UMConvoApp"
+      "package": "com.UMConvoApp",
+      "googleServicesFile": "./google-services.json"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-web-browser",
-      [
-        "@react-native-google-signin/google-signin",{
-          "iosUrlScheme": "com.googleusercontent.apps.378967716917-8cvh67gtcel268vl0k5cup07ld2nikbm"
-        }
-      ]
-    ],
+    
     "extra": {
       "eas": {
         "projectId": "84debcc5-87cc-43de-9adc-85593eb31ea5"
       }
-    },
-    "scheme": "umconvoapp"
+    }
   }
 }

@@ -47,14 +47,15 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   Title: {
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: 'bold',
     marginVertical: 15,
     color: '#192F59',
     textAlign: 'center',
+    marginLeft: 10,
+    marginRight: 10
     },
   Card: {
-    backgroundColor: 'white',
     borderRadius: 12,
     overflow: 'hidden',
     elevation: 3, // Android shadow
@@ -62,7 +63,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    marginBottom: 20,
+    marginLeft: 20,
+    marginRight: 20,
+    marginBottom: 50
   },
   Image: {
     height: 500,
