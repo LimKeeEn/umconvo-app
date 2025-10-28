@@ -11,36 +11,25 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import styles from '../StyleSheet/navigation.styles.js';
+import Header from '../NavigationBar/Header';
+
+const handleNotificationPress = () => {
+    console.log('Notification pressed');
+    // Add your notification logic here
+  };
 
 const NavigationPage = () => {
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      {/* Fixed Header */}
-      <View style={styles.headerContainer}>
-        <ImageBackground
-          source={require('../assets/Started_1.png')}
-          style={styles.header}
-          resizeMode="cover"
-        >
-          <View style={styles.headerOverlay}>
-            <View style={styles.headerBackground} />
-
-            <TouchableOpacity style={styles.menuOverlay}>
-              <Ionicons name="menu" size={28} color="white" />
-            </TouchableOpacity>
-
-            <Text style={styles.headerText}>NAVIGATION</Text>
-
-            <TouchableOpacity style={styles.notOverlay}>
-              <Ionicons name="notifications-outline" size={28} color="white" />
-            </TouchableOpacity>
-          </View>
-        </ImageBackground>
-      </View>
+      {/* Header */}
+      <Header 
+        title="IMPORTANT DATES"
+        onNotificationPress={handleNotificationPress}
+      />
 
       {/* Scrollable Content */}
       <ScrollView
-        style={[styles.container, { marginTop: 90 }]} // Push content below fixed header
+        style={[styles.container, { marginTop: 150 }]}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
         <Text style={styles.sectionTitle}>Navigation Options</Text>

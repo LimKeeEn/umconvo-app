@@ -15,6 +15,7 @@ import {
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
 import styles from "../StyleSheet/dates.styles.js"
+import Header from '../NavigationBar/Header'
 
 const Dates = () => {
   const [view, setView] = useState("upcoming")
@@ -228,29 +229,23 @@ const Dates = () => {
     )
   }
 
+  const handleNotificationPress = () => {
+    console.log('Notification pressed');
+    // Add your notification logic here
+  };
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      {/* Fixed Header */}
-      <View style={styles.HeaderContainer}>
-        <ImageBackground source={require("../assets/Started_1.png")} style={styles.header} resizeMode="cover">
-          <View style={styles.headerOverlay}>
-            <View style={styles.headerBackground} />
-
-            <TouchableOpacity style={styles.menuOverlay}>
-              <Ionicons name="menu" size={28} color="white" />
-            </TouchableOpacity>
-
-            <Text style={styles.headerText}>IMPORTANT DATES</Text>
-
-            <TouchableOpacity style={styles.notOverlay}>
-              <Ionicons name="notifications-outline" size={28} color="white" />
-            </TouchableOpacity>
-          </View>
-        </ImageBackground>
-      </View>
+      {/* Header */}
+      <Header 
+        title="IMPORTANT DATES"
+        onNotificationPress={handleNotificationPress}
+      />
 
       {/* Scrollable Content */}
-      <ScrollView style={[styles.container, { marginTop: 90 }]} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView 
+        style={[styles.container, { marginTop: 150 }]}
+        contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Toggle Buttons */}
         <View style={styles.switchContainer}>
           <TouchableOpacity
