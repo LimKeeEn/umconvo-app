@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import styles from '../StyleSheet/confirmation.styles.js';
+import Header from '../NavigationBar/Header';
 
 const tasks = [
   { title: 'Update Profile Information', status: 'pending' },
@@ -24,30 +25,18 @@ const Confirmation = () => {
     console.log(`Pressed: ${taskTitle}`);
   };
 
+  const handleNotificationPress = () => {
+    console.log('Notification pressed');
+    // Add your notification logic here
+  };
+
   return (
     <View style={{ flex: 1 }}>
-      {/* Fixed Header */}
-      <View style={styles.HeaderContainer}>
-        <ImageBackground
-          source={require('../assets/Started_1.png')}
-          style={styles.header}
-          resizeMode="cover"
-        >
-          <View style={styles.headerOverlay}>
-            <View style={styles.headerBackground} />
-
-            <TouchableOpacity style={styles.menuOverlay}>
-              <Ionicons name="menu" size={28} color="white" />
-            </TouchableOpacity>
-
-            <Text style={styles.headerText}>CONFIRMATION</Text>
-
-            <TouchableOpacity style={styles.notOverlay}>
-              <Ionicons name="notifications-outline" size={28} color="white" />
-            </TouchableOpacity>
-          </View>
-        </ImageBackground>
-      </View>
+      {/* Header */}
+      <Header 
+        title="IMPORTANT DATES"
+        onNotificationPress={handleNotificationPress}
+      />
 
       {/* Scrollable Content */}
       <ScrollView

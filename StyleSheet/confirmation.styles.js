@@ -1,51 +1,6 @@
 import { StyleSheet } from 'react-native';
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F2F2',
-  },
-  HeaderContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 999,
-  },
-  headerOverlay: {
-    height: 150,
-    position: 'relative',
-    justifyContent: 'center',
-  },
-  headerBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#192F59',
-    opacity: 0.8,
-    zIndex: 0,
-  },
-  menuOverlay: {
-    position: 'absolute',
-    bottom: 20,
-    left: 20,
-    zIndex: 1,
-  },
-  notOverlay: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    zIndex: 1,
-  },
-  headerText: {
-    position: 'absolute',
-    bottom: 20,
-    left: 50,
-    right: 50,
-    textAlign: 'center',
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-    zIndex: 1,
-  },
   progressSection: {
     padding: 20,
   },

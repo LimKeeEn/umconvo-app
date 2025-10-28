@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "868341431770-fsccgud8l42r23nslb934sfns8hfiffp.apps.googleusercontent.com",
+          "client_id": "868341431770-gmi1rqufckdae1i9luvcqndjp6eog1p2.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.UMConvoApp",
-            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+            "certificate_hash": "0e2e73b7853e9f7c3128816efe3ec6a5205161e1"
           }
         },
         {

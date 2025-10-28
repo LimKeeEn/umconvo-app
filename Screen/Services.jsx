@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from '@expo/vector-icons';
 import styles from "../StyleSheet/services.styles.js";
+import Header from '../NavigationBar/Header';
 
 const Services = () => {
   const [images, setImages] = useState([]);
@@ -43,30 +44,19 @@ const Services = () => {
     fetchImages();
   }, []);
 
+  const handleNotificationPress = () => {
+    console.log('Notification pressed');
+    // Add your notification logic here
+  };
+
   return (
     <View style={{ flex: 1 }}>
-       {/* Fixed Header */}
-      <View style={styles.HeaderContainer}>
-        <ImageBackground
-          source={require('../assets/Started_1.png')}
-          style={styles.header}
-          resizeMode="cover"
-        >
-          <View style={styles.headerOverlay}>
-            <View style={styles.headerBackground} />
-
-            <TouchableOpacity style={styles.menuOverlay}>
-              <Ionicons name="menu" size={28} color="white" />
-            </TouchableOpacity>
-
-            <Text style={styles.headerText}>SERVICES</Text>
-
-            <TouchableOpacity style={styles.notOverlay}>
-              <Ionicons name="notifications-outline" size={28} color="white" />
-            </TouchableOpacity>
-          </View>
-        </ImageBackground>
-      </View>
+       {/* Header */}
+      <Header 
+        title="IMPORTANT DATES"
+        onNotificationPress={handleNotificationPress}
+      />
+      
       {/* Scrollable Content */}
       <ScrollView
         style={[styles.container, { marginTop: 150 }]}

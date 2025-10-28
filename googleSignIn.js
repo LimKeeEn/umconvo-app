@@ -1,108 +1,174 @@
-// import * as Google from 'expo-auth-session/providers/google';
-// import * as WebBrowser from 'expo-web-browser';
-// import React from 'react';
+// import React, { useState, useEffect } from 'react';
 // import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 // import { auth } from './firebaseConfig';
-// import { makeRedirectUri } from 'expo-auth-session';
+// import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 
-// WebBrowser.maybeCompleteAuthSession();
+// const API_URL = 'http://10.0.2.2:3000';
+
+// GoogleSignin.configure({
+//   webClientId: '868341431770-f06uasd307r3p5q2v4ree5lj1bpk1bc8.apps.googleusercontent.com',
+//   offlineAccess: false,
+//   forceCodeForRefreshToken: true,
+//   scopes: ['profile', 'email']
+// });
 
 // export function useGoogleSignIn(onSuccess) {
-//   const redirectUri = makeRedirectUri({
-//     useProxy: true,
-//   });
+//   const [loading, setLoading] = useState(false);
+//   const [error, setError] = useState(null);
 
-//   const [request, response, promptAsync] = Google.useAuthRequest({
-//     webClientId: '868341431770-f06uasd307r3p5q2v4ree5lj1bpk1bc8.apps.googleusercontent.com',
-//     iosClientId: '868341431770-8v1t0r0i1kde0vu991jt0f1d53t2gm97.apps.googleusercontent.com',
-//     androidClientId: '868341431770-pk954cct62n716pf3nsbdlinlq4dcfhc.apps.googleusercontent.com',
-//     scopes: ['profile', 'email'],
-//     redirectUri
-//   });
+//   /**
+//    * Function to handle the full sign-in process:
+//    * 1. Check Play Services (Android only)
+//    * 2. Initiate native Google Sign-In
+//    * 3. Exchange the ID token for a Firebase credential
+//    */
+//   const signIn = async () => {
+//     setLoading(true);
+//     setError(null);
+//     try {
+//       await GoogleSignin.signOut();
+//       // 1. Check for Play Services on Android
+//       await GoogleSignin.hasPlayServices();
 
-//   const [loading, setLoading] = React.useState(false);
-//   const [error, setError] = React.useState(null);
+//       // 2. Initiate Native Google Sign-In
+//       const userInfo = await GoogleSignin.signIn();
+//       console.log('Full userInfo:', JSON.stringify(userInfo, null, 2));
+//       const idToken = userInfo.idToken || userInfo.data?.idToken || userInfo.user?.idToken;
+//       console.log('ID Token:', idToken);
 
-//   React.useEffect(() => {
-//     if (response?.type === 'success') {
-//       const { id_token } = response.authentication;
-//       const credential = GoogleAuthProvider.credential(id_token);
+//       if (!idToken) {
+//         throw new Error('Google Sign-In failed to return an ID token.');
+//       }
 
-//       setLoading(true);
-//       signInWithCredential(auth, credential)
-//         .then((userCredential) => {
-//           console.log('Firebase sign in success:', userCredential.user);
-//           onSuccess?.(); // Navigate on success
-//         })
-//         .catch((err) => {
-//           console.error('Firebase sign in error:', err);
-//           setError(err);
-//         })
-//         .finally(() => setLoading(false));
+//       // 3. Exchange ID token for a Firebase credential
+//       const googleCredential = GoogleAuthProvider.credential(idToken);
+//       const userCredential = await signInWithCredential(auth, googleCredential);
+
+//       console.log('Firebase sign in success:', userCredential.user);
+//       onSuccess?.(); // Navigate on success
+
+//     } catch (err) {
+//       if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+//         console.log('User cancelled the sign-in flow.');
+//       } else {
+//         console.error('Sign-in error:', err);
+//         setError(err);
+//       } 
+//     } finally {
+//       setLoading(false);
 //     }
-//   }, [response]);
+//   };
 
-//   return { promptAsync, loading, error };
+//   return { promptAsync: signIn, loading, error };
 // }
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { auth } from './firebaseConfig';
-// Import the native Google Sign-In library
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
-// NOTE: WebBrowser.maybeCompleteAuthSession() and makeRedirectUri are no longer needed
-// for the native flow, but you need your Web Client ID for configuration.
+const API_URL = 'http://10.0.2.2:5000';
 
-// --- Configuration (Outside the Hook) ---
-// Use the Web Client ID for configuration, as Firebase needs it for token verification.
-// The Android and iOS client IDs are handled by the native SDK/config files.
 GoogleSignin.configure({
   webClientId: '868341431770-f06uasd307r3p5q2v4ree5lj1bpk1bc8.apps.googleusercontent.com',
-  // You can also include other options here, like offlineAccess or scopes, if needed.
-  // scopes: ['profile', 'email'], 
+  offlineAccess: false,
+  forceCodeForRefreshToken: true,
+  scopes: ['profile', 'email']
 });
-// ----------------------------------------
 
 export function useGoogleSignIn(onSuccess) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const navigation = useNavigation();
 
-  /**
-   * Function to handle the full sign-in process:
-   * 1. Check Play Services (Android only)
-   * 2. Initiate native Google Sign-In
-   * 3. Exchange the ID token for a Firebase credential
-   */
   const signIn = async () => {
     setLoading(true);
     setError(null);
+
     try {
-      // 1. Check for Play Services on Android
+      await GoogleSignin.signOut();
       await GoogleSignin.hasPlayServices();
 
-      // 2. Initiate Native Google Sign-In
+      // Step 1: Start Google sign-in
       const userInfo = await GoogleSignin.signIn();
-      const { idToken } = userInfo;
+      console.log('Full userInfo:', JSON.stringify(userInfo, null, 2));
 
-      if (!idToken) {
-        throw new Error('Google Sign-In failed to return an ID token.');
-      }
+      const idToken = userInfo.idToken || userInfo.data?.idToken || userInfo.user?.idToken;
+      if (!idToken) throw new Error('Google Sign-In failed to return an ID token.');
 
-      // 3. Exchange ID token for a Firebase credential
+      // Step 2: Sign in to Firebase using Google credential
       const googleCredential = GoogleAuthProvider.credential(idToken);
       const userCredential = await signInWithCredential(auth, googleCredential);
+      const firebaseUser = userCredential.user;
+      console.log('Firebase sign in success:', userCredential.user.email);
 
-      console.log('Firebase sign in success:', userCredential.user);
-      onSuccess?.(); // Navigate on success
+      // Step 3: Get Firebase ID token to send to backend
+      const firebaseIdToken = await userCredential.user.getIdToken(true);
+
+      // Step 4: Call backend to verify email domain
+      console.log('Sending ID token to backend...');
+      const response = await fetch(`${API_URL}/api/verify-user`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: firebaseIdToken }),
+      });
+
+      // Step 5: Handle response safely
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        const text = await response.text();
+        console.error('⚠️ Backend returned non-JSON response:', text);
+        throw new Error('Server did not return valid JSON. Check backend logs.');
+      }
+
+      if (!response.ok || !data.success) {
+        // Sign out on failure
+        await GoogleSignin.signOut();
+        await auth.signOut();
+
+        Alert.alert(
+          'Access Denied',
+          data.message || 'Only @siswa.um.edu.my email addresses are allowed to sign in.',
+          [{ text: 'OK' }]
+        );
+
+        throw new Error(data.message || 'Email verification failed.');
+      }
+
+      console.log('✅ Email verified successfully:', data.user);
+      navigation.navigate('Register', { 
+      userInfo: {
+        user: {
+          name: firebaseUser.displayName,
+          email: firebaseUser.email,
+          photo: firebaseUser.photoURL,
+        }
+      }
+    });
 
     } catch (err) {
+      console.error('❌ Sign-in error:', err);
+
       if (err.code === statusCodes.SIGN_IN_CANCELLED) {
-        console.log('User cancelled the sign-in flow.');
+        console.log('User cancelled sign-in.');
+        setError({ message: 'Sign-in cancelled.' });
+      } else if (err.message?.includes('@siswa.um.edu.my')) {
+        // Already handled above
+        setError({ message: err.message });
+      } else if (err.message?.includes('JSON')) {
+        Alert.alert(
+          'Server Error',
+          'The backend did not return valid JSON. Please check your server connection or logs.',
+          [{ text: 'OK' }]
+        );
       } else {
-        console.error('Sign-in error:', err);
+        Alert.alert('Sign-in Error', err.message || 'Something went wrong. Please try again.');
         setError(err);
-      } A
+      }
     } finally {
       setLoading(false);
     }

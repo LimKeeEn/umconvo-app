@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBBIZsAdAc_cvaUubnd2iQNAPsrJ5G7ZmQ",
@@ -11,6 +12,9 @@ const firebaseConfig = {
 
 // Initialize Firebase app
 const app = initializeApp(firebaseConfig);
+
+// Initialize and export auth
+export const auth = getAuth(app);
 
 // Export REST API base URLs
 export const firestoreBaseURL = "https://firestore.googleapis.com/v1/projects/umconvo-app/databases/(default)/documents/";
