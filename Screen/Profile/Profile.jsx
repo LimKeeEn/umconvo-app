@@ -199,9 +199,9 @@ const Profile = ({ navigation, route }) => {
         
         const generatedTickets = [];
 
-        let convocationDate = studentData.graduationSession || '30 Nov 2024 (7.30am)'; 
+        let convocationDate = 'Not Available'; 
         let convocationTimeSlot = '';
-        let convocationLocation = 'Dewan Tunku Canselor';
+        let convocationLocation = 'Not Available';
 
         if (convocationData) {
             convocationDate = convocationData.date;
@@ -225,8 +225,8 @@ const Profile = ({ navigation, route }) => {
           });
 
           if (studentData.attireOption === 'collect') {
-            let attireDate = 'Collection Period: 25-28 Nov 2024';
-            let attireVenue = 'Exam Building UM';
+            let attireDate = 'Not Available';
+            let attireVenue = 'Not Available';
             
             if (attireSchedule) {
                 attireDate = `${attireSchedule.date} (${attireSchedule.timeSlot})`;
