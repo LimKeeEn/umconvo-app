@@ -305,6 +305,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: 'white',
         textAlign: 'center',
+        paddingHorizontal: 17
     },
     backButton: {
         position: 'absolute',
@@ -321,7 +322,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         textAlign: 'center',
         marginBottom: 25,
-        paddingHorizontal: 10,
     },
     qrCodeSection: {
         backgroundColor: 'white',
