@@ -13,8 +13,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    
-
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "web": {
       "favicon": "./assets/favicon.png",
       "redirectPatterns": [
@@ -22,15 +23,29 @@
         "umconvoapp://*"
       ]
     },
-
     "plugins": [
       "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to save photos to your gallery.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos to your gallery."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#FFFFFF",
+          "sounds": ["./assets/notification-sound.wav"],
+          "mode": "production"
+        }
+      ]
     ],
-    
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "host.exp.exponent", 
+      "bundleIdentifier": "com.umconvoapp",
       "infoPlist": {
         "CFBundleURLTypes": [
           {
@@ -39,7 +54,8 @@
               "com.googleusercontent.apps.378967716917-8cvh67gtcel268vl0k5cup07ld2nikbm"
             ]
           }
-        ]
+        ],
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -48,14 +64,21 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.UMConvoApp",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.umconvoapp",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "useNextNotificationsApi": true
     },
-    
     "extra": {
       "eas": {
         "projectId": "84debcc5-87cc-43de-9adc-85593eb31ea5"
       }
-    }
+    },
+    "owner": "your-expo-username"
   }
 }

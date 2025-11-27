@@ -22,7 +22,7 @@ function App() {
           <Route path="/important-dates" element={<ImportantDates />} />
           <Route path="/news" element={<News />} />
           <Route path="/services" element={<Services />} />
-          <Route path="/navigation" element={<Navigation />} />
+          {/* <Route path="/navigation" element={<Navigation />} /> */}
           <Route path="/help-support" element={<HelpSupport />} />
           <Route path="/about-us" element={<AboutUs />} />
         </Route>

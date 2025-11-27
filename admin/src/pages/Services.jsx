@@ -14,9 +14,7 @@ import {
   doc,
   deleteDoc,
 } from "firebase/firestore";
-import styles from '../StyleSheetWeb/services.styles.js';
 import { FaPlus, FaTrash, FaEdit } from "react-icons/fa";
-
 
 const AdminServices = () => {
   const [images, setImages] = useState([]);
@@ -80,40 +78,40 @@ const AdminServices = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.heading}>Services</h1>
-        <div style={styles.buttonGroup}>
+    <div className="p-10 bg-[#f7fafc] min-h-[95vh]">
+      <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5 bg-white">
+        <h1 className="text-4xl font-bold text-[#13274f] m-0">Services</h1>
+        <div className="flex gap-3">
           {/* Add your top-right icons if needed */}
         </div>
       </div>
 
-      <div style={styles.contentGrid}>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
         {images.map((image) => (
           <div
             key={image.id}
-            style={styles.card}
+            className="relative bg-white rounded-xl shadow-md overflow-hidden cursor-default h-[28rem]"
             onMouseEnter={() => setHovered(image.id)}
             onMouseLeave={() => setHovered(null)}
           >
-            <div style={styles.imageWrapper}>
-              <img src={image.url} alt={image.name} style={styles.image} />
+            <div className="relative">
+              <img 
+                src={image.url} 
+                alt={image.name} 
+                className="w-full h-[25rem] object-contain"
+              />
               <div
-                style={{
-                  ...styles.overlay,
-                  ...(hovered === image.id ? styles.overlayVisible : {}),
-                }}
+                className={`absolute inset-0 bg-black/50 flex justify-center items-center gap-2.5 transition-opacity duration-300 ${
+                  hovered === image.id ? 'opacity-100' : 'opacity-0'
+                }`}
               >
                 {/* Change Button */}
-                <label
-                  style={{ ...styles.overlayButton, ...styles.editButton }}
-                >
+                <label className="px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1.5 cursor-pointer border-none bg-white text-black">
                   <FaEdit />
                   Change
                   <input
                     type="file"
                     className="hidden"
-                    style={{ display: "none" }}
                     onChange={(e) => handleReplace(e, image)}
                   />
                 </label>
@@ -121,49 +119,44 @@ const AdminServices = () => {
                 {/* Delete Button */}
                 <button
                   onClick={() => handleDelete(image.id, image.url)}
-                  style={{ ...styles.overlayButton, ...styles.deleteButton }}
+                  className="px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1.5 cursor-pointer border-none bg-red-500 text-white"
                 >
                   <FaTrash /> Delete
                 </button>
               </div>
             </div>
-            <p style={styles.imageName}>{image.name}</p>
+            <p className="my-3 mx-4 font-semibold text-base text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis">
+              {image.name}
+            </p>
           </div>
         ))}
 
         {/* Add New Image Card */}
         <div
-          style={{
-            ...styles.addCard,
-            ...(hovered === "add" ? styles.addCardHover : {}),
-          }}
+          className={`bg-white rounded-xl shadow-md border-2 border-dashed cursor-pointer flex flex-col items-center justify-center h-[28rem] w-full transition-colors duration-300 ml-[30px] ${
+            hovered === "add" 
+              ? 'border-gray-600 text-gray-700' 
+              : 'border-gray-300 text-gray-400'
+          }`}
           onMouseEnter={() => setHovered("add")}
           onMouseLeave={() => setHovered(null)}
         >
-          <label>
-            <div style={styles.addIconWrapper}>
+          <label className="flex flex-col items-center cursor-pointer">
+            <div className="flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full cursor-pointer mb-4 ml-5">
               <FaPlus size={24} />
             </div>
             <div>Add New Image</div>
             <input
               type="file"
               onChange={handleFileChange}
-              style={{ display: "none" }}
+              className="hidden"
             />
           </label>
           {selectedFile && (
             <button
               onClick={handleUpload}
               disabled={uploading}
-              style={{
-                marginTop: "10px",
-                padding: "8px 16px",
-                backgroundColor: "#3182ce", // blue-600
-                color: "white",
-                borderRadius: "6px",
-                border: "none",
-                cursor: "pointer",
-              }}
+              className="mt-2.5 px-4 py-2 bg-blue-600 text-white rounded-md border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? "Uploading..." : "Upload"}
             </button>

@@ -1,14 +1,29 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const styles = StyleSheet.create({
   
+  countdownSection: {
+    backgroundColor: 'white',
+    paddingVertical: 20,
+  },
+  countdownTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#192F59',
+    marginBottom: 5,
+  },
+  countdownSubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: '#777',
+    marginBottom: 15,
+  },
   timerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingVertical: 20,
-    backgroundColor: 'white',
   },
   timerBox: {
     alignItems: 'center',
@@ -56,6 +71,57 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     color: '#333',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#999',
+  },
+  // Modal Styles
+  modalCenteredView: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  modalFullScreenImage: {
+    width: width, 
+    height: height * 0.5,
+    marginBottom: 20,
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 40,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  modalInfoContainer: {
+    backgroundColor: 'white',
+    marginHorizontal: 20,
+    padding: 20,
+    borderRadius: 12,
+    width: width - 40,
+  },
+  modalInfoTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#192F59',
+    marginBottom: 12,
+  },
+  modalInfoText: {
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 22,
   },
 });
 

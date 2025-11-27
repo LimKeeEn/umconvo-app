@@ -13,21 +13,13 @@ const isValidSiswaEmail = (email) => {
 router.post("/verify-user", async (req, res) => {
   try {
     const { idToken } = req.body;
-
     if (!idToken) {
-      return res.status(400).json({
-        success: false,
-        message: "ID token is required",
-      });
+      return res.status(400).json({ success: false, message: "ID token is required" });
     }
 
-    // Verify Firebase ID token
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { email, uid } = decodedToken;
 
-    console.log("User email:", email);
-
-    // Check domain
     if (!isValidSiswaEmail(email)) {
       await admin.auth().deleteUser(uid);
       return res.status(403).json({
@@ -36,26 +28,24 @@ router.post("/verify-user", async (req, res) => {
       });
     }
 
-    // Success response
+    // Check if user exists in Firestore
+    const db = admin.firestore();
+    const userDoc = await db.collection("students").doc(email).get();
+    const isRegistered = userDoc.exists;
+
     return res.status(200).json({
       success: true,
       message: "Email verified successfully",
+      isRegistered, // New field
       user: {
         uid,
         email,
         emailVerified: decodedToken.email_verified,
+        ...(isRegistered && { userData: userDoc.data() }) // Include user data if registered
       },
     });
   } catch (error) {
     console.error("Verification error:", error);
-
-    if (error.code === "auth/id-token-expired") {
-      return res.status(401).json({
-        success: false,
-        message: "Token expired. Please sign in again.",
-      });
-    }
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
