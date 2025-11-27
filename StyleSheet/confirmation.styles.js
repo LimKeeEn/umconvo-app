@@ -32,10 +32,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#eee',
   },
-  activeCard: {
-    borderColor: '#192F59',
-    borderWidth: 2,
-  },
+  detailsCard: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    borderLeftWidth: 5,
+    borderLeftColor: '#192F59', 
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+},
+detailsTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#192F59',
+    marginBottom: 8,
+},
+detailsRow: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#333',
+},
   taskLeft: {
     flexDirection: 'row',
     alignItems: 'center',

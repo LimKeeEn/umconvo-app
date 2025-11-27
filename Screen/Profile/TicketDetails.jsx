@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -6,6 +6,8 @@ import {
     ScrollView,
     TouchableOpacity,
     Alert,
+    Image,
+    ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -24,15 +26,13 @@ const DetailItem = ({ icon, label, value }) => (
 
 /**
  * The main screen component for displaying ticket details.
- * It receives ticketData and ticketType via route.params.
+ * It receives ticketData via route.params.
+ * Uses QR API instead of package to avoid installation issues.
  */
 export default function TicketDetailsScreen({ route, navigation }) {
-    // Safely extract parameters passed from the previous screen
-    // Defaults are used in case navigation.navigate was called without params
-    const { ticketData = {}, ticketType = 'main' } = route.params || {}; 
+    const { ticketData = {} } = route.params || {}; 
 
     if (!ticketData || !ticketData.eventName) {
-        // Handle case where no valid ticket data was passed
         return (
             <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
                 <Text style={{ color: '#DC3545', fontSize: 18 }}>
@@ -45,17 +45,60 @@ export default function TicketDetailsScreen({ route, navigation }) {
         );
     }
     
-    // Determine colors based on ticket type
-    const color = ticketType === 'main' ? '#192F59' : '#9B5DE5';
-    const accentColor = ticketType === 'main' ? '#FFD93D' : '#9B5DE5';
-
-    const handleRefreshPress = () => {
-        Alert.alert("QR Code Refreshed", "The QR code has been successfully refreshed for security.", [{ text: "OK" }]);
-    }
+    // Determine ticket type and colors
+    const ticketType = ticketData.type || 'attendance';
+    const isAttendance = ticketType === 'attendance';
+    const isGown = ticketType === 'gown';
+    const isGuest = ticketType === 'guest';
     
-    // Determine which name/identifier to show
-    const passHolder = ticketData.guestNumber || ticketData.studentId || ticketData.name || 'N/A';
-    const passLabel = ticketData.guestNumber ? 'Pass Holder' : 'Graduand';
+    // Color scheme based on ticket type
+    let color, accentColor, headerTitle;
+    if (isAttendance) {
+        color = '#192F59';
+        accentColor = '#FFD93D';
+        headerTitle = 'CONVOCATION ATTENDANCE TICKET';
+    } else if (isGown) {
+        color = '#4CAF50';
+        accentColor = '#4CAF50';
+        headerTitle = 'GOWN COLLECTION TICKET';
+    } else if (isGuest) {
+        color = '#9B5DE5';
+        accentColor = '#9B5DE5';
+        headerTitle = 'GUEST PASS';
+    } else {
+        color = '#192F59';
+        accentColor = '#FFD93D';
+        headerTitle = 'TICKET';
+    }
+
+    // Generate QR code data
+    const generateQRData = () => {
+        const qrData = {
+            type: ticketType,
+            confirmationCode: ticketData.confirmationCode,
+            matricNo: ticketData.matricNo,
+            name: ticketData.studentName || ticketData.guestNumber,
+            timestamp: new Date().toISOString(),
+        };
+        
+        if (isGown) {
+            qrData.attireSize = ticketData.attireSize;
+            qrData.hasRepresentative = ticketData.hasRepresentative;
+            if (ticketData.hasRepresentative) {
+                qrData.representativeName = ticketData.representativeName;
+                qrData.representativeID = ticketData.representativeID;
+            }
+        }
+        
+        return JSON.stringify(qrData);
+    };
+
+    // Generate QR code URL using API (No package installation needed!)
+    const getQRCodeUrl = () => {
+        const qrData = generateQRData();
+        // Using QR Server API - free and reliable
+        return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}&margin=10`;
+    };
 
     return (
         <View style={styles.container}>
@@ -64,59 +107,159 @@ export default function TicketDetailsScreen({ route, navigation }) {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={28} color="#FFF" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>
-                    {ticketType === 'main' ? 'MAIN TICKET' : 'GUEST PASS'}
-                </Text>
+                <Text style={styles.headerTitle}>{headerTitle}</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 
                 {/* Main Event Title */}
-                <Text style={[styles.mainTitle, { color: color }]}>{ticketData.eventName}</Text>
+                <Text style={[styles.mainTitle, { color: color }]}>
+                    {ticketData.eventName}
+                </Text>
                 
                 {/* QR Code Section */}
                 <View style={[styles.qrCodeSection, { borderColor: accentColor }]}>
-                    <Ionicons name="qr-code-outline" size={120} color={color} />
-                    <Text style={styles.qrCodeLabel}>Scan this code at the venue entrance</Text>
+                    <View style={styles.qrCodeContainer}>
+                        {/* QR Code using API - No installation needed! */}
+                        <Image
+                            source={{ uri: getQRCodeUrl() }}
+                            style={styles.qrCodeImage}
+                            resizeMode="contain"
+                        />
+                    </View>
+                    <Text style={styles.qrCodeLabel}>
+                        {isGown 
+                            ? 'Scan this code at the collection counter' 
+                            : 'Scan this code at the venue entrance'}
+                    </Text>
                     {ticketData.confirmationCode && (
-                        <Text style={styles.confirmationNumber}>
-                            Confirmation Number: {ticketData.confirmationCode}
-                        </Text>
+                        <View style={styles.confirmationContainer}>
+                            <Text style={styles.confirmationLabel}>Confirmation Number</Text>
+                            <Text style={styles.confirmationNumber}>
+                                {ticketData.confirmationCode}
+                            </Text>
+                        </View>
                     )}
                 </View>
 
                 {/* Details Card */}
                 <View style={styles.detailsCard}>
+                    {/* Graduand/Guest Name */}
                     <DetailItem 
                         icon="person-outline" 
-                        label={passLabel} 
-                        value={passHolder} 
+                        label={isGuest ? 'Guest' : 'Graduand Name'} 
+                        value={ticketData.studentName || ticketData.guestNumber || 'N/A'} 
                     />
+                    
+                    {/* Matric Number (if not guest) */}
+                    {!isGuest && ticketData.matricNo && (
+                        <DetailItem 
+                            icon="id-card-outline" 
+                            label="Matric Number" 
+                            value={ticketData.matricNo} 
+                        />
+                    )}
+                    
+                    {/* Faculty (if available) */}
+                    {ticketData.faculty && (
+                        <DetailItem 
+                            icon="business-outline" 
+                            label="Faculty" 
+                            value={ticketData.faculty} 
+                        />
+                    )}
+                    
+                    {/* Programme (if available) */}
+                    {ticketData.programme && (
+                        <DetailItem 
+                            icon="book-outline" 
+                            label="Programme" 
+                            value={ticketData.programme} 
+                        />
+                    )}
+                    
+                    {/* Event Date & Time */}
                     <DetailItem 
                         icon="calendar-outline" 
-                        label="Event Date & Time" 
+                        label="Date & Time" 
                         value={ticketData.date} 
                     />
+                    
+                    {/* Venue */}
                     <DetailItem 
                         icon="location-outline" 
                         label="Venue" 
                         value={ticketData.venue} 
                     />
+                    
+                    {/* Gown-specific details */}
+                    {isGown && ticketData.attireSize && (
+                        <DetailItem 
+                            icon="shirt-outline" 
+                            label="Attire Size" 
+                            value={ticketData.attireSize} 
+                        />
+                    )}
+                    
+                    {isGown && ticketData.hasRepresentative && (
+                        <>
+                            <DetailItem 
+                                icon="people-outline" 
+                                label="Representative Name" 
+                                value={ticketData.representativeName || 'N/A'} 
+                            />
+                            <DetailItem 
+                                icon="card-outline" 
+                                label="Representative ID" 
+                                value={ticketData.representativeID || 'N/A'} 
+                            />
+                        </>
+                    )}
+                    
+                    {/* Ticket Type */}
                     <DetailItem 
                         icon="information-circle-outline" 
                         label="Ticket Type" 
-                        value={ticketType === 'main' ? 'Main Graduand Ticket' : 'Guest Attendance Pass'} 
+                        value={
+                            isAttendance ? 'Convocation Attendance' : 
+                            isGown ? 'Academic Attire Collection' : 
+                            'Guest Pass'
+                        } 
                     />
                 </View>
 
-                <TouchableOpacity 
-                    style={[styles.refreshButton, { backgroundColor: color }]}
-                    onPress={handleRefreshPress}
-                    activeOpacity={0.8}
-                >
-                    <Ionicons name="sync-outline" size={24} color="white" />
-                    <Text style={styles.refreshButtonText}>Refresh QR Code</Text>
-                </TouchableOpacity>
+                {/* Important Notes Section */}
+                {isGown && (
+                    <View style={styles.notesCard}>
+                        <View style={styles.notesHeader}>
+                            <Ionicons name="alert-circle-outline" size={20} color="#ff9800" />
+                            <Text style={styles.notesTitle}>Collection Guidelines</Text>
+                        </View>
+                        <Text style={styles.notesText}>
+                            • Present this QR code at the collection counter{'\n'}
+                            • {ticketData.hasRepresentative 
+                                ? 'Your representative must bring their ID card' 
+                                : 'Bring your student ID card'}{'\n'}
+                            • Collection hours: 9:00 AM - 5:00 PM{'\n'}
+                            • Academic attire must be returned after ceremony
+                        </Text>
+                    </View>
+                )}
+
+                {isAttendance && (
+                    <View style={styles.notesCard}>
+                        <View style={styles.notesHeader}>
+                            <Ionicons name="alert-circle-outline" size={20} color="#ff9800" />
+                            <Text style={styles.notesTitle}>Important Reminder</Text>
+                        </View>
+                        <Text style={styles.notesText}>
+                            • Please arrive at least 1 hour before ceremony{'\n'}
+                            • Bring your student ID card{'\n'}
+                            • Dress in full academic attire{'\n'}
+                            • Follow the assigned seating arrangement
+                        </Text>
+                    </View>
+                )}
             </ScrollView>
         </View>
     );
@@ -156,12 +299,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
         justifyContent: 'center',
         alignItems: 'center',
-        // boxShadow/shadow is provided by the parent navigator typically
     },
     headerTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
         color: 'white',
+        textAlign: 'center',
     },
     backButton: {
         position: 'absolute',
@@ -174,55 +317,91 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     mainTitle: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: 'bold',
         textAlign: 'center',
         marginBottom: 25,
+        paddingHorizontal: 10,
     },
     qrCodeSection: {
         backgroundColor: 'white',
-        padding: 30,
+        padding: 25,
         borderRadius: 15,
-        borderWidth: 4,
+        borderWidth: 3,
         borderStyle: 'dashed',
         alignItems: 'center',
-        marginBottom: 30,
+        marginBottom: 25,
         width: '100%',
+    },
+    qrCodeContainer: {
+        padding: 10,
+        backgroundColor: 'white',
+        borderRadius: 10,
+    },
+    qrCodeImage: {
+        width: 200,
+        height: 200,
     },
     qrCodeLabel: {
         fontSize: 14,
         color: '#4B5563',
         marginTop: 15,
+        textAlign: 'center',
+    },
+    confirmationContainer: {
+        marginTop: 15,
+        alignItems: 'center',
+        backgroundColor: '#F9FAFB',
+        padding: 12,
+        borderRadius: 8,
+        width: '100%',
+    },
+    confirmationLabel: {
+        fontSize: 12,
+        color: '#6B7280',
+        marginBottom: 4,
     },
     confirmationNumber: {
-        fontSize: 16,
-        fontWeight: '600',
+        fontSize: 20,
+        fontWeight: 'bold',
         color: '#1F2937',
-        marginTop: 5,
+        letterSpacing: 2,
     },
     detailsCard: {
         backgroundColor: 'white',
         borderRadius: 15,
         paddingHorizontal: 20,
         width: '100%',
-        marginBottom: 30,
+        marginBottom: 20,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 5,
         elevation: 5,
     },
-    refreshButton: {
+    notesCard: {
+        backgroundColor: '#FFF9E6',
+        borderRadius: 12,
+        padding: 15,
+        width: '100%',
+        marginBottom: 20,
+        borderLeftWidth: 4,
+        borderLeftColor: '#ff9800',
+    },
+    notesHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 15,
-        paddingHorizontal: 30,
-        borderRadius: 10,
-        gap: 10,
+        marginBottom: 10,
     },
-    refreshButtonText: {
-        color: 'white',
+    notesTitle: {
         fontSize: 16,
         fontWeight: 'bold',
-    }
+        color: '#1F2937',
+        marginLeft: 8,
+    },
+    notesText: {
+        fontSize: 14,
+        color: '#4B5563',
+        lineHeight: 22,
+    },
 });

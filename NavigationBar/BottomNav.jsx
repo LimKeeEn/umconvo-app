@@ -4,9 +4,9 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import HomePage from '../Screen/HomePage'; 
 import Dates from '../Screen/Dates'; 
-import Confirmation from '../Screen/Confirmation'; 
+import Confirmation from '../Screen/Confirmation/Confirmation'; 
 import Services from '../Screen/Services'; 
-import Navigation from '../Screen/Navigation'; 
+import Feed from '../Screen/Feed';
 
 const Tab = createBottomTabNavigator();
 
@@ -30,8 +30,8 @@ const BottomNav = () => {
             case 'Services':
               iconName = focused ? 'camera' : 'camera-outline';
               break;
-            case 'Navigation':
-              iconName = focused ? 'compass' : 'compass-outline';
+            case 'Feed':
+              iconName = focused ? 'albums' : 'albums-outline';
               break;
           }
 
@@ -47,7 +47,7 @@ const BottomNav = () => {
       <Tab.Screen name="Dates" component={Dates} />
       <Tab.Screen name="Confirmation" component={Confirmation} />
       <Tab.Screen name="Services" component={Services} />
-      <Tab.Screen name="Navigation" component={Navigation} />
+      <Tab.Screen name="Feed" component={Feed} />
     </Tab.Navigator>
   );
 };

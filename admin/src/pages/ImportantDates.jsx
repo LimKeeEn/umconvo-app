@@ -1,6 +1,4 @@
 "use client"
-
-import styles from '../StyleSheetWeb/importantdates.styles.js';
 import { useState, useRef, useEffect } from "react"
 import {
   Search,
@@ -12,12 +10,13 @@ import {
   Trash2,
   Plus,
   Filter,
-  GripVertical,
+  GripVertical, // Keep for now, but will be removed from general view
   FileText,
   Upload,
   X,
   Download,
   Loader,
+  Clock,
 } from "lucide-react"
 
 // Firebase imports
@@ -30,13 +29,141 @@ import {
   doc,
   getDocs,
   query,
-  orderBy,
+  // Removed orderBy for initial fetch, as we'll do the logic-based sort ourselves
   serverTimestamp,
 } from "firebase/firestore"
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
+import { 
+  notifyImportantDateAdded,
+  notifyImportantDateUpdated,
+  notifyImportantDateDeleted,
+  notifyConvocationScheduleAdded,
+  notifyConvocationScheduleUpdated,
+  notifyConvocationScheduleDeleted,
+  notifyAttireScheduleAdded,
+  notifyAttireScheduleUpdated,
+  notifyAttireScheduleDeleted
+} from "../services/notificationService"
+
+// Helper function to get status color - **Modified to return a sortable priority value as well**
+const getStatusColorAndPriority = (dateString, timeString) => {
+  const now = new Date();
+  const startDate = new Date(dateString);
+  startDate.setHours(0, 0, 0, 0);
+
+  let color = "#4CAF50"; // Default: Green/Past
+  let priority = 3; // Default: Lowest priority
+
+  // Helper to safely parse date/time for range check if a timeString exists
+  let endTime = null;
+  if (timeString) {
+    try {
+      const parts = timeString.split("-");
+      // Use the *end* time/date for the completion marker in a range
+      const endDateString = parts.length > 1 ? parts[1].trim() : timeString.trim(); 
+      // Assuming timeString/endDateString stores the *end date* for a period date
+      endTime = new Date(endDateString);
+      endTime.setHours(23, 59, 59, 999);
+    } catch (e) {
+      // If parsing fails, fall back to simple single date check
+      endTime = null;
+    }
+  }
+
+  // Logic to determine status
+  if (endTime) {
+    // Range/End Date logic
+    if (now >= startDate && now <= endTime) {
+      color = "#F44336"; // Red: Ongoing (Current)
+      priority = 1;
+    } else if (now < startDate) {
+      const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 7) {
+        color = "#F44336"; // Red: Urgent (Within 7 days)
+        priority = 1;
+      } else {
+        color = "#FFC107"; // Yellow: Upcoming
+        priority = 2;
+      }
+    } else {
+      // now > endTime, so it's past
+      color = "#4CAF50"; // Green: Past/Completed
+      priority = 3;
+    }
+  } else {
+    // Single date logic
+    const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      color = "#4CAF50"; // Green: Past/Completed
+      priority = 3;
+    } else if (diffDays === 0) {
+      color = "#F44336"; // Red: Today/Urgent
+      priority = 1;
+    } else {
+      if (diffDays <= 7) {
+        color = "#F44336"; // Red: Urgent (Within 7 days)
+        priority = 1;
+      } else {
+        color = "#FFC107"; // Yellow: Upcoming
+        priority = 2;
+      }
+    }
+  }
+
+  return { color, priority };
+}
+
+// Function to get the date object for sorting (Start Date, or End Date if present)
+const getSortableDate = (dateString, timeString) => {
+    if (!dateString) return new Date(0); // Epoch for safety
+    
+    let date = new Date(dateString);
+    date.setHours(0, 0, 0, 0);
+
+    // If timeString is used for a date range, try to use the end date for a more meaningful sort
+    if (timeString) {
+        try {
+             // Assuming timeString contains the end date if it's a date range
+            const parts = timeString.split("-");
+            const endDateString = parts.length > 1 ? parts[1].trim() : timeString.trim(); 
+            const endDate = new Date(endDateString);
+            endDate.setHours(0, 0, 0, 0);
+            
+            // If the end date is later than the start date, use the start date for the main sort (to appear first chronologically)
+            // If both are the same, use the original date
+            // Let's stick to the start date for chronological sorting
+            return date;
+        } catch (e) {
+            return date; // Fallback
+        }
+    }
+
+    return date;
+}
+
+const sortDates = (a, b) => {
+    const aStatus = getStatusColorAndPriority(a.date, a.time);
+    const bStatus = getStatusColorAndPriority(b.date, b.time);
+
+    // 1. Sort by Priority (Red:1, Yellow:2, Green:3) - Ascending (Urgent first)
+    if (aStatus.priority !== bStatus.priority) {
+        return aStatus.priority - bStatus.priority;
+    }
+
+    // 2. If priorities are the same, sort by Date - Ascending (Older date first)
+    const aDate = getSortableDate(a.date, a.time);
+    const bDate = getSortableDate(b.date, b.time);
+
+    return aDate.getTime() - bDate.getTime();
+}
+
 
 const ImportantDates = () => {
+  const [activeTab, setActiveTab] = useState("general")
   const [dates, setDates] = useState([])
+  const [convocationSchedule, setConvocationSchedule] = useState([])
+  const [attireSchedule, setAttireSchedule] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -45,8 +172,11 @@ const ImportantDates = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false)
   const [editingDate, setEditingDate] = useState(null)
   const [viewingDate, setViewingDate] = useState(null)
-  const [draggedItem, setDraggedItem] = useState(null)
-  const [dragOverItem, setDragOverItem] = useState(null)
+  
+  // Removed drag-and-drop state
+  // const [draggedItem, setDraggedItem] = useState(null)
+  // const [dragOverItem, setDragOverItem] = useState(null)
+
   const [filters, setFilters] = useState({
     dateFrom: "",
     dateTo: "",
@@ -60,29 +190,60 @@ const ImportantDates = () => {
     pdfFile: null,
     pdfUrl: "",
     pdfName: "",
+    faculty: "",
+    timeSlot: "",
   })
 
-  const dragCounter = useRef(0)
   const fileInputRef = useRef(null)
   const editFileInputRef = useRef(null)
 
-  // Fetch dates from Firebase on component mount
+  const FACULTY_OPTIONS = [ 
+    { label: "Faculty of Built Environment", value: "Faculty-of-Built-Environment" },
+    { label: "Faculty of Languages and Linguistics", value: "Faculty of Languages and Linguistics" },
+    { label: "Faculty of Pharmacy", value: "Faculty of Pharmacy" },
+    { label: "Faculty of Engineering", value: "Faculty of Engineering" },
+    { label: "Faculty of Education", value: "Faculty of Education" },
+    { label: "Faculty of Dentistry", value: "Faculty of Dentistry" },
+    { label: "Faculty of Business and Economics", value: "Faculty of Business and Economics" },
+    { label: "Faculty of Medicine", value: "Faculty of Medicine" },
+    { label: "Faculty of Science", value: "Faculty of Science" },
+    { label: "Faculty of Computer Science & Information Technology", value: "Faculty of Computer Science & Information Technology" },
+    { label: "Faculty of Arts And Social Sciences", value: "Faculty of Arts And Social Sciences" },
+    { label: "Faculty of Creative Arts", value: "Faculty of Creative Arts" },
+    { label: "Faculty of Law", value: "Faculty of Law" },
+    { label: "Faculty of Sports and Exercise Sciences", value: "Faculty of Sports and Exercise Science" },
+    { label: "Academy of Islamic Studies", value: "Academy of Islamic Studies" },
+    { label: "Academy of Malay Studies", value: "Academy of Malay Studies" },
+  ];
+  
   useEffect(() => {
-    fetchDates()
+    fetchAllData()
   }, [])
 
-  // Fetch dates from Firestore
-  const fetchDates = async () => {
+  const fetchAllData = async () => {
     try {
       setLoading(true)
-      const datesQuery = query(collection(db, "importantDates"), orderBy("createdAt", "desc"))
+      await Promise.all([
+        fetchDates(),
+        fetchConvocationSchedule(),
+        fetchAttireSchedule()
+      ])
+    } catch (error) {
+      console.error("Error fetching data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchDates = async () => {
+    try {
+      // Removed orderBy in query, sort will be applied after fetching
+      const datesQuery = collection(db, "importantDates") 
       const querySnapshot = await getDocs(datesQuery)
 
       const datesData = []
       for (const docSnapshot of querySnapshot.docs) {
         const data = docSnapshot.data()
-
-        // Create date object with Firestore data
         const dateItem = {
           id: docSnapshot.id,
           title: data.title,
@@ -92,41 +253,62 @@ const ImportantDates = () => {
           status: data.status || "active",
           pdfUrl: data.pdfUrl || "",
           pdfName: data.pdfName || "",
-          pdfFile: null, // Will be populated when needed
-          order: data.order || 0,
+          pdfOriginalName: data.pdfOriginalName || data.pdfName || "", // Ensure we have the original name if possible
+          pdfFile: null,
+          // Removed order field as it's no longer used for manual drag-and-drop
         }
-
         datesData.push(dateItem)
       }
 
-      // Sort by order field
-      datesData.sort((a, b) => a.order - b.order)
+      // 1. Sort by Priority (Red -> Yellow -> Green)
+      // 2. Then by Date (Ascending)
+      datesData.sort(sortDates) 
       setDates(datesData)
     } catch (error) {
       console.error("Error fetching dates:", error)
-      alert("Failed to load important dates. Please try again.")
-    } finally {
-      setLoading(false)
     }
   }
 
-  // Update order in Firestore after drag and drop
-  const updateOrderInFirestore = async (newDates) => {
+  const fetchConvocationSchedule = async () => {
     try {
-      // Update each document with its new order
-      const updatePromises = newDates.map((date, index) => {
-        const dateRef = doc(db, "importantDates", date.id)
-        return updateDoc(dateRef, { order: index })
-      })
+      const scheduleQuery = query(collection(db, "convocationSchedule")) // Removed orderBy, could add `orderBy("date", "asc")` if date sorting is desired for non-general tabs
+      const querySnapshot = await getDocs(scheduleQuery)
 
-      await Promise.all(updatePromises)
+      const scheduleData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+
+      // Optional: Sort Convocation schedule by date
+      scheduleData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      setConvocationSchedule(scheduleData)
     } catch (error) {
-      console.error("Error updating order:", error)
-      alert("Failed to update order. Please try again.")
+      console.error("Error fetching convocation schedule:", error)
     }
   }
 
-  // Helper functions defined first
+  const fetchAttireSchedule = async () => {
+    try {
+      const scheduleQuery = query(collection(db, "attireSchedule")) // Removed orderBy
+      const querySnapshot = await getDocs(scheduleQuery)
+
+      const scheduleData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      
+      // Optional: Sort Attire schedule by date
+      scheduleData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      setAttireSchedule(scheduleData)
+    } catch (error) {
+      console.error("Error fetching attire schedule:", error)
+    }
+  }
+
+  // Removed updateOrderInFirestore function as manual reordering is removed
+
   const formatDateDisplay = (date, time) => {
     if (!date) return ""
     const dateObj = new Date(date)
@@ -134,6 +316,7 @@ const ImportantDates = () => {
     let formatted = dateObj.toLocaleDateString("en-US", options)
 
     if (time) {
+      // Assuming time is an end date in this context
       const timeObj = new Date(time)
       const timeFormatted = timeObj.toLocaleDateString("en-US", options)
       formatted = `${formatted} - ${timeFormatted}`
@@ -142,75 +325,52 @@ const ImportantDates = () => {
     return formatted
   }
 
-  // Get color based on date
-  const getDateColor = (dateString, timeString) => {
-    const now = new Date();
-    const startDate = new Date(dateString);
-    startDate.setHours(0, 0, 0, 0);
+  // Removed formatTimeDisplay (unused)
 
-    // For events with time component
-    if (timeString) {
-      const endTime = new Date(timeString);
-      
-      // Ongoing event (current time is between start and end)
-      if (now >= startDate && now <= endTime) {
-        return "#F44336"; // Red for ongoing
-      }
-      // Future event
-      else if (now < startDate) {
-        const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
-        return diffDays <= 7 ? "#F44336" : "#FFC107"; // Red for ≤7 days, Yellow for >7
-      }
-      // Past event
-      else {
-        return "#4CAF50"; // Green for past
-      }
-    } 
-    // For all-day events (no time specified)
-    else {
-      const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
-      
-      if (diffDays < 0) {
-        return "#4CAF50"; // Green for past
-      } 
-      else if (diffDays === 0) {
-        return "#F44336"; // Red for today
-      }
-      else {
-        return diffDays <= 7 ? "#F44336" : "#FFC107"; // Red for ≤7 days, Yellow for >7
-      }
-    }
-  }
+  // Renamed to clarify its purpose
+  const getDateColor = (date, time) => getStatusColorAndPriority(date, time).color;
 
-  // Enhanced filtering function
+
   const getFilteredDates = () => {
-    return dates.filter((date) => {
-      // Text search
+    const filtered = dates.filter((date) => {
       const matchesSearch =
         date.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         date.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
         date.date.includes(searchTerm) ||
         formatDateDisplay(date.date, date.time).toLowerCase().includes(searchTerm.toLowerCase())
 
-      // Date range filter
       const matchesDateRange =
         (!filters.dateFrom || new Date(date.date) >= new Date(filters.dateFrom)) &&
         (!filters.dateTo || new Date(date.date) <= new Date(filters.dateTo))
 
-      // Location filter
       const matchesLocation = !filters.location || date.location.toLowerCase().includes(filters.location.toLowerCase())
 
       return matchesSearch && matchesDateRange && matchesLocation
     })
+    
+    // Sort filtered results as well
+    filtered.sort(sortDates);
+    
+    return filtered;
+  }
+
+  const getFilteredSchedule = (schedule) => {
+    return schedule.filter((item) => {
+      const matchesSearch =
+        item.faculty.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.location.toLowerCase().includes(searchTerm.toLowerCase())
+
+      return matchesSearch
+    })
   }
 
   const filteredDates = getFilteredDates()
+  const filteredConvocation = getFilteredSchedule(convocationSchedule)
+  const filteredAttire = getFilteredSchedule(attireSchedule)
 
-  // File handling functions
-  const handleFileUpload = (e, isEdit = false) => {
+  const handleFileUpload = (e) => {
     const file = e.target.files[0]
     if (file && file.type === "application/pdf") {
-      // Check file size (limit to 10MB)
       if (file.size > 10 * 1024 * 1024) {
         alert("File size exceeds 10MB limit. Please choose a smaller file.")
         e.target.value = ""
@@ -232,7 +392,7 @@ const ImportantDates = () => {
     setFormData({
       ...formData,
       pdfFile: null,
-      pdfUrl: isEdit ? formData.pdfUrl : "", // Keep the URL if editing
+      pdfUrl: isEdit ? formData.pdfUrl : "",
       pdfName: isEdit ? formData.pdfName : "",
     })
 
@@ -243,22 +403,10 @@ const ImportantDates = () => {
     }
   }
 
-  // Firebase file upload with enhanced error handling
   const uploadPdfToFirebase = async (file, dateId) => {
     if (!file) return { url: "", name: "" }
 
     try {
-      console.log("Starting PDF upload to Firebase Storage...")
-      console.log("File details:", { 
-        name: file.name, 
-        size: file.size, 
-        type: file.type,
-        isValidPDF: file.type === "application/pdf",
-        isWithinSizeLimit: file.size <= 10 * 1024 * 1024
-      });
-      console.log("Storage bucket:", storage.app.options.storageBucket)
-
-      // Validate file
       if (file.type !== "application/pdf") {
         throw new Error("File must be a PDF")
       }
@@ -267,14 +415,9 @@ const ImportantDates = () => {
         throw new Error("File size must be less than 10MB")
       }
 
-      // Create a reference to Firebase Storage
-       const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const storageRef = ref(storage, `importantDates/${dateId}/${fileName}`);
 
-      console.log("Storage reference created:", storageRef.fullPath)
-
-      // Upload the file to Firebase Storage
-      console.log("Uploading file to Firebase Storage...")
       const uploadTask = uploadBytes(storageRef, file, {
         contentType: "application/pdf",
         customMetadata: {
@@ -283,19 +426,13 @@ const ImportantDates = () => {
         },
       })
 
-      // Add a timeout to prevent hanging forever
       const uploadPromise = Promise.race([
         uploadTask,
         new Promise((_, reject) => setTimeout(() => reject(new Error("Upload timed out after 60 seconds")), 60000)),
       ])
 
       const uploadResult = await uploadPromise
-      console.log("File uploaded successfully:", uploadResult)
-
-      // Get the download URL from Firebase Storage
-      console.log("Getting download URL...")
       const downloadUrl = await getDownloadURL(storageRef)
-      console.log("Download URL obtained:", downloadUrl)
 
       return {
         url: downloadUrl,
@@ -304,128 +441,47 @@ const ImportantDates = () => {
       }
     } catch (error) {
       console.error("Detailed upload error:", error)
-
-      // Provide specific error messages
-      if (error.code === "storage/unauthorized") {
-        throw new Error("Upload failed: Permission denied. Please check Firebase Storage rules.")
-      } else if (error.code === "storage/canceled") {
-        throw new Error("Upload was canceled.")
-      } else if (error.code === "storage/unknown") {
-        throw new Error("Upload failed: Unknown error occurred.")
-      } else if (error.code === "storage/invalid-format") {
-        throw new Error("Upload failed: Invalid file format.")
-      } else if (error.code === "storage/invalid-argument") {
-        throw new Error("Upload failed: Invalid argument provided.")
-      } else {
-        throw new Error(`Upload failed: ${error.message || "Unknown error"}`)
-      }
+      throw new Error(`Upload failed: ${error.message || "Unknown error"}`)
     }
   }
 
-  // Enhanced delete function for Firebase Storage
   const deletePdfFromFirebase = async (dateId, fileName) => {
     if (!fileName) return
 
     try {
-      console.log("Deleting PDF from Firebase Storage:", fileName)
-      const fileRef = ref(storage, `pdfs/${dateId}/${fileName}`)
+      const fileRef = ref(storage, `importantDates/${dateId}/${fileName}`)
       await deleteObject(fileRef)
-      console.log("PDF deleted successfully from Firebase Storage")
     } catch (error) {
       console.error("Error deleting file from Firebase Storage:", error)
-
-      if (error.code === "storage/object-not-found") {
-        console.log("File not found in storage, may have been already deleted")
-      } else {
-        console.error("Failed to delete file:", error.message)
-      }
-      // Don't throw error as the file might not exist
     }
   }
 
-  // View modal handler
   const handleViewDate = async (date) => {
-    // If the date has a PDF URL but no file loaded yet
     if (date.pdfUrl && !date.pdfFile) {
       try {
-        // Create a temporary loading state
         setViewingDate({ ...date, loadingPdf: true })
         setIsViewModalOpen(true)
 
-        // Fetch the PDF file
         const response = await fetch(date.pdfUrl)
         const blob = await response.blob()
-        const file = new File([blob], date.pdfName || "document.pdf", { type: "application/pdf" })
+        const file = new File([blob], date.pdfOriginalName || date.pdfName || "document.pdf", { type: "application/pdf" }) // Use original name
 
-        // Update the date with the file
         const updatedDate = { ...date, pdfFile: file, loadingPdf: false }
         setViewingDate(updatedDate)
 
-        // Also update in the dates array
         setDates(dates.map((d) => (d.id === date.id ? { ...d, pdfFile: file } : d)))
       } catch (error) {
         console.error("Error loading PDF:", error)
         setViewingDate({ ...date, loadingPdf: false, pdfError: true })
       }
     } else {
-      // If no PDF or already loaded
       setViewingDate(date)
       setIsViewModalOpen(true)
     }
   }
 
-  // Drag and drop handlers - only for drag handle
-  const handleDragStart = (e, item) => {
-    setDraggedItem(item)
-    e.dataTransfer.effectAllowed = "move"
-    e.dataTransfer.setData("text/html", e.target.parentNode.parentNode)
-    e.dataTransfer.setDragImage(e.target.parentNode.parentNode, 20, 20)
-  }
-
-  const handleDragOver = (e) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
-  }
-
-  const handleDragEnter = (e, item) => {
-    e.preventDefault()
-    setDragOverItem(item)
-    dragCounter.current++
-  }
-
-  const handleDragLeave = (e) => {
-    dragCounter.current--
-    if (dragCounter.current === 0) {
-      setDragOverItem(null)
-    }
-  }
-
-  const handleDrop = async (e, dropItem) => {
-    e.preventDefault()
-    dragCounter.current = 0
-    setDragOverItem(null)
-
-    if (draggedItem && draggedItem.id !== dropItem.id) {
-      const draggedIndex = dates.findIndex((item) => item.id === draggedItem.id)
-      const dropIndex = dates.findIndex((item) => item.id === dropItem.id)
-
-      const newDates = [...dates]
-      const draggedItemData = newDates.splice(draggedIndex, 1)[0]
-      newDates.splice(dropIndex, 0, draggedItemData)
-
-      setDates(newDates)
-
-      // Update order in Firebase
-      await updateOrderInFirestore(newDates)
-    }
-    setDraggedItem(null)
-  }
-
-  const handleDragEnd = () => {
-    setDraggedItem(null)
-    setDragOverItem(null)
-    dragCounter.current = 0
-  }
+  // Removed all drag-and-drop handler functions:
+  // handleDragStart, handleDragOver, handleDragEnter, handleDragLeave, handleDrop, handleDragEnd
 
   const handleAddNew = () => {
     setFormData({
@@ -436,51 +492,75 @@ const ImportantDates = () => {
       pdfFile: null,
       pdfUrl: "",
       pdfName: "",
+      faculty: "",
+      timeSlot: "",
     })
     setIsAddModalOpen(true)
   }
 
-  const handleEdit = (e, date) => {
-    e.stopPropagation() // Prevent triggering the view modal
-    setEditingDate(date)
+  const handleEdit = (e, item) => {
+    e.stopPropagation()
+    setEditingDate(item)
 
-    setFormData({
-      title: date.title,
-      date: date.date,
-      time: date.time,
-      location: date.location,
-      pdfFile: date.pdfFile, // Include the file if it's already loaded
-      pdfUrl: date.pdfUrl || "",
-      pdfName: date.pdfName || "",
-    })
+    if (activeTab === "general") {
+      setFormData({
+        title: item.title,
+        date: item.date,
+        time: item.time,
+        location: item.location,
+        pdfFile: item.pdfFile,
+        pdfUrl: item.pdfUrl || "",
+        pdfName: item.pdfName || "",
+        pdfOriginalName: item.pdfOriginalName || item.pdfName || "",
+        faculty: "",
+        timeSlot: "",
+      })
+
+      if (item.pdfUrl && !item.pdfFile) {
+        preloadPdfForEdit(item)
+      }
+    } else {
+      setFormData({
+        title: "",
+        date: item.date,
+        time: "",
+        location: item.location,
+        pdfFile: null,
+        pdfUrl: "",
+        pdfName: "",
+        faculty: item.faculty,
+        timeSlot: item.timeSlot,
+      })
+    }
 
     setIsEditModalOpen(true)
-
-    // Preload the PDF if needed
-    if (date.pdfUrl && !date.pdfFile) {
-      preloadPdfForEdit(date)
-    }
   }
 
   const handleDelete = async (e, id) => {
-    e.stopPropagation() // Prevent triggering the view modal
+    e.stopPropagation()
     if (window.confirm("Are you sure you want to delete this item?")) {
       try {
-        // Find the date to get PDF info
-        const dateToDelete = dates.find((date) => date.id === id)
-
-        // Delete from Firestore
-        await deleteDoc(doc(db, "importantDates", id))
-
-        // Delete PDF if exists
-        if (dateToDelete.pdfName) {
-          await deletePdfFromFirebase(id, dateToDelete.pdfName)
+        if (activeTab === "general") {
+          const dateToDelete = dates.find((date) => date.id === id)
+          await deleteDoc(doc(db, "importantDates", id))
+          if (dateToDelete.pdfName) {
+            await deletePdfFromFirebase(id, dateToDelete.pdfName)
+          }
+          const newDates = dates.filter((date) => date.id !== id);
+          newDates.sort(sortDates); // Re-sort after deletion
+          setDates(newDates);
+          await notifyImportantDateDeleted()
+        } else if (activeTab === "convocation") {
+          await deleteDoc(doc(db, "convocationSchedule", id))
+          setConvocationSchedule(convocationSchedule.filter((item) => item.id !== id))
+          await notifyConvocationScheduleDeleted()
+        } else if (activeTab === "attire") {
+          await deleteDoc(doc(db, "attireSchedule", id))
+          setAttireSchedule(attireSchedule.filter((item) => item.id !== id))
+          await notifyAttireScheduleDeleted()
         }
-
-        // Update local state
-        setDates(dates.filter((date) => date.id !== id))
       } catch (error) {
-        console.error("Error deleting date:", error)
+        console.error("Error deleting:", error)
         alert("Failed to delete. Please try again.")
       }
     }
@@ -491,69 +571,110 @@ const ImportantDates = () => {
     try {
       setLoading(true)
 
-      // Create new document in Firestore first
-      const docRef = await addDoc(collection(db, "importantDates"), {
-        title: formData.title,
-        date: formData.date,
-        time: formData.time,
-        location: formData.location,
-        status: "active",
-        pdfUrl: "",
-        pdfName: "",
-        pdfOriginalName: "",
-        createdAt: serverTimestamp(),
-        order: dates.length,
-      })
+      if (activeTab === "general") {
+        const docRef = await addDoc(collection(db, "importantDates"), {
+          title: formData.title,
+          date: formData.date,
+          time: formData.time,
+          location: formData.location,
+          status: "active",
+          pdfUrl: "",
+          pdfName: "",
+          pdfOriginalName: "",
+          createdAt: serverTimestamp(),
+          // Removed order field
+        })
 
-      console.log("Document created in Firestore:", docRef.id)
-
-      // Prepare the new date object for local state
-      const newDate = {
-        id: docRef.id,
-        title: formData.title,
-        date: formData.date,
-        time: formData.time,
-        location: formData.location,
-        status: "active",
-        pdfUrl: "",
-        pdfName: "",
-        pdfOriginalName: "",
-        pdfFile: null,
-        order: dates.length,
-      }
-
-      // Upload PDF if provided
-      if (formData.pdfFile) {
-        try {
-          console.log("Starting PDF upload for document:", docRef.id)
-          const pdfData = await uploadPdfToFirebase(formData.pdfFile, docRef.id)
-
-          // Update the document with PDF info in Firestore
-          await updateDoc(docRef, {
-            pdfUrl: pdfData.url,
-            pdfName: pdfData.name,
-            pdfOriginalName: pdfData.originalName || formData.pdfFile.name,
-          })
-
-          console.log("PDF metadata saved to Firestore")
-
-          // Update the newDate object with PDF info
-          newDate.pdfUrl = pdfData.url
-          newDate.pdfName = pdfData.name
-          newDate.pdfOriginalName = pdfData.originalName || formData.pdfFile.name
-          newDate.pdfFile = formData.pdfFile
-
-          console.log("PDF upload completed successfully")
-        } catch (pdfError) {
-          console.error("PDF upload failed:", pdfError)
-          alert(
-            `PDF upload failed: ${pdfError.message}. The date was created but without the PDF. You can edit it later to add the PDF.`,
-          )
+        const newDate = {
+          id: docRef.id,
+          title: formData.title,
+          date: formData.date,
+          time: formData.time,
+          location: formData.location,
+          status: "active",
+          pdfUrl: "",
+          pdfName: "",
+          pdfOriginalName: "",
+          pdfFile: null,
+          // Removed order field
         }
+
+        if (formData.pdfFile) {
+          try {
+            const pdfData = await uploadPdfToFirebase(formData.pdfFile, docRef.id)
+            await updateDoc(docRef, {
+              pdfUrl: pdfData.url,
+              pdfName: pdfData.name,
+              pdfOriginalName: pdfData.originalName || formData.pdfFile.name,
+            })
+
+            newDate.pdfUrl = pdfData.url
+            newDate.pdfName = pdfData.name
+            newDate.pdfOriginalName = pdfData.originalName || formData.pdfFile.name
+            newDate.pdfFile = formData.pdfFile
+          } catch (pdfError) {
+            console.error("PDF upload failed:", pdfError)
+            alert(`PDF upload failed: ${pdfError.message}`)
+          }
+        }
+        
+        // Re-sort the array after adding the new item
+        const updatedDates = [newDate, ...dates];
+        updatedDates.sort(sortDates);
+        setDates(updatedDates);
+        
+        await notifyImportantDateAdded(formData.title, formData.date)
+      } else if (activeTab === "convocation") {
+        const docRef = await addDoc(collection(db, "convocationSchedule"), {
+          faculty: formData.faculty,
+          date: formData.date,
+          timeSlot: formData.timeSlot,
+          location: formData.location,
+          createdAt: serverTimestamp(),
+        })
+
+        const newSchedule = {
+          id: docRef.id,
+          faculty: formData.faculty,
+          date: formData.date,
+          timeSlot: formData.timeSlot,
+          location: formData.location,
+        }
+        
+        // Sort convocation schedule by date after adding
+        const updatedSchedule = [...convocationSchedule, newSchedule];
+        updatedSchedule.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        setConvocationSchedule(updatedSchedule)
+
+        const facultyName = FACULTY_OPTIONS.find(f => f.value === formData.faculty)?.label || formData.faculty
+        await notifyConvocationScheduleAdded(facultyName, formData.date, formData.timeSlot)
+
+      } else if (activeTab === "attire") {
+        const docRef = await addDoc(collection(db, "attireSchedule"), {
+          faculty: formData.faculty,
+          date: formData.date,
+          timeSlot: formData.timeSlot,
+          location: formData.location,
+          createdAt: serverTimestamp(),
+        })
+
+        const newSchedule = {
+          id: docRef.id,
+          faculty: formData.faculty,
+          date: formData.date,
+          timeSlot: formData.timeSlot,
+          location: formData.location,
+        }
+        
+        // Sort attire schedule by date after adding
+        const updatedSchedule = [...attireSchedule, newSchedule];
+        updatedSchedule.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        setAttireSchedule(updatedSchedule)
+
+        const facultyName = FACULTY_OPTIONS.find(f => f.id === formData.faculty)?.name || formData.faculty
+        await notifyAttireScheduleAdded(facultyName, formData.date, formData.timeSlot)
       }
 
-      // Add to local state
-      setDates([...dates, newDate])
       setIsAddModalOpen(false)
       setFormData({
         title: "",
@@ -563,16 +684,16 @@ const ImportantDates = () => {
         pdfFile: null,
         pdfUrl: "",
         pdfName: "",
+        faculty: "",
+        timeSlot: "",
       })
 
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
-
-      console.log("Date added successfully")
     } catch (error) {
-      console.error("Error adding date:", error)
-      alert(`Failed to add new date: ${error.message}`)
+      console.error("Error adding:", error)
+      alert(`Failed to add: ${error.message}`)
     } finally {
       setLoading(false)
     }
@@ -584,64 +705,115 @@ const ImportantDates = () => {
 
     try {
       setLoading(true);
-      const dateRef = doc(db, "importantDates", editingDate.id);
 
-      // Prepare update data
-      const updateData = {
-        title: formData.title,
-        date: formData.date,
-        time: formData.time,
-        location: formData.location,
-        updatedAt: serverTimestamp(),
-      };
-
-      // Handle PDF changes
-      if (formData.pdfFile) {
-        try {
-          console.log("Attempting PDF upload for edit...");
-          const pdfData = await uploadPdfToFirebase(formData.pdfFile, editingDate.id);
-          
-          // Add PDF info to update data
-          updateData.pdfUrl = pdfData.url;
-          updateData.pdfName = pdfData.name;
-          updateData.pdfOriginalName = pdfData.originalName;
-          
-          // If there was a previous PDF, delete it
-          if (editingDate.pdfName && editingDate.pdfName !== pdfData.name) {
-            console.log("Deleting previous PDF:", editingDate.pdfName);
-            await deletePdfFromFirebase(editingDate.id, editingDate.pdfName);
+      if (activeTab === "general") {
+        const dateRef = doc(db, "importantDates", editingDate.id);
+        let updateData = {
+          title: formData.title,
+          date: formData.date,
+          time: formData.time,
+          location: formData.location,
+          updatedAt: serverTimestamp(),
+        };
+        
+        let newPdfUrl = formData.pdfUrl;
+        let newPdfName = formData.pdfName;
+        let newPdfOriginalName = formData.pdfOriginalName;
+        let newPdfFile = formData.pdfFile;
+        
+        const isNewFileSelected = formData.pdfFile && formData.pdfFile !== editingDate.pdfFile;
+        const isFileRemoved = formData.pdfUrl === "" && editingDate.pdfUrl;
+        
+        if (isNewFileSelected) {
+          try {
+            const pdfData = await uploadPdfToFirebase(formData.pdfFile, editingDate.id);
+            updateData.pdfUrl = pdfData.url;
+            updateData.pdfName = pdfData.name;
+            updateData.pdfOriginalName = pdfData.originalName || formData.pdfFile.name;
+            newPdfUrl = pdfData.url;
+            newPdfName = pdfData.name;
+            newPdfOriginalName = pdfData.originalName || formData.pdfFile.name;
+            
+            if (editingDate.pdfName && editingDate.pdfName !== pdfData.name) {
+              await deletePdfFromFirebase(editingDate.id, editingDate.pdfName);
+            }
+          } catch (pdfError) {
+            console.error("PDF upload failed during edit:", pdfError);
+            alert(`Warning: ${pdfError.message}`);
           }
-        } catch (pdfError) {
-          console.error("PDF upload failed during edit:", pdfError);
-          // Show error but continue with the update
-          alert(`Warning: ${pdfError.message}. The date was updated but without PDF changes.`);
+        } else if (isFileRemoved) {
+          try {
+            await deletePdfFromFirebase(editingDate.id, editingDate.pdfName);
+            updateData.pdfUrl = "";
+            updateData.pdfName = "";
+            updateData.pdfOriginalName = "";
+            newPdfUrl = "";
+            newPdfName = "";
+            newPdfOriginalName = "";
+            newPdfFile = null;
+          } catch (deleteError) {
+            console.error("Failed to delete PDF:", deleteError);
+          }
         }
-      } else if (formData.pdfUrl === "" && editingDate.pdfName) {
-        // User removed the PDF
-        try {
-          console.log("Removing PDF attachment...");
-          await deletePdfFromFirebase(editingDate.id, editingDate.pdfName);
-          updateData.pdfUrl = "";
-          updateData.pdfName = "";
-          updateData.pdfOriginalName = "";
-        } catch (deleteError) {
-          console.error("Failed to delete PDF:", deleteError);
-          // Continue with the update anyway
-        }
+
+        await updateDoc(dateRef, updateData);
+        
+        const updatedDates = dates.map((date) => 
+          date.id === editingDate.id ? { 
+            ...date, 
+            ...updateData,
+            pdfFile: newPdfFile,
+            pdfUrl: newPdfUrl,
+            pdfName: newPdfName,
+            pdfOriginalName: newPdfOriginalName,
+          } : date
+        );
+        updatedDates.sort(sortDates);
+        setDates(updatedDates);
+        
+        await notifyImportantDateUpdated(formData.title)
+      } else if (activeTab === "convocation") {
+        const scheduleRef = doc(db, "convocationSchedule", editingDate.id);
+        const updateData = {
+          faculty: formData.faculty,
+          date: formData.date,
+          timeSlot: formData.timeSlot,
+          location: formData.location,
+          updatedAt: serverTimestamp(),
+        };
+
+        await updateDoc(scheduleRef, updateData);
+        
+        const updatedSchedule = convocationSchedule.map((item) =>
+          item.id === editingDate.id ? { ...item, ...updateData } : item
+        );
+        updatedSchedule.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        setConvocationSchedule(updatedSchedule);
+
+        const facultyName = FACULTY_OPTIONS.find(f => f.id === formData.faculty)?.name || formData.faculty
+        await notifyConvocationScheduleUpdated(facultyName)
+
+      } else if (activeTab === "attire") {
+        const scheduleRef = doc(db, "attireSchedule", editingDate.id);
+        const updateData = {
+          faculty: formData.faculty,
+          date: formData.date,
+          timeSlot: formData.timeSlot,
+          location: formData.location,
+          updatedAt: serverTimestamp(),
+        };
+
+        await updateDoc(scheduleRef, updateData);
+        
+        const updatedSchedule = attireSchedule.map((item) =>
+          item.id === editingDate.id ? { ...item, ...updateData } : item
+        );
+        updatedSchedule.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        setAttireSchedule(updatedSchedule);
+
+        const facultyName = FACULTY_OPTIONS.find(f => f.id === formData.faculty)?.name || formData.faculty
+        await notifyAttireScheduleUpdated(facultyName)
       }
-
-      // Update in Firestore
-      console.log("Updating Firestore document with:", updateData);
-      await updateDoc(dateRef, updateData);
-
-      // Update local state
-      setDates(dates.map((date) => 
-        date.id === editingDate.id ? { 
-          ...date, 
-          ...updateData,
-          pdfFile: formData.pdfFile || date.pdfFile,
-        } : date
-      ));
 
       setIsEditModalOpen(false);
       setEditingDate(null);
@@ -653,18 +825,21 @@ const ImportantDates = () => {
         pdfFile: null,
         pdfUrl: "",
         pdfName: "",
+        faculty: "",
+        timeSlot: "",
       });
 
       if (editFileInputRef.current) {
         editFileInputRef.current.value = "";
       }
     } catch (error) {
-      console.error("Error updating date:", error);
+      console.error("Error updating:", error);
       alert(`Failed to update: ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
+
   const closeModal = () => {
     setIsAddModalOpen(false)
     setIsEditModalOpen(false)
@@ -680,6 +855,8 @@ const ImportantDates = () => {
       pdfFile: null,
       pdfUrl: "",
       pdfName: "",
+      faculty: "",
+      timeSlot: "",
     })
 
     if (fileInputRef.current) {
@@ -696,112 +873,26 @@ const ImportantDates = () => {
 
   const hasActiveFilters = filters.dateFrom || filters.dateTo || filters.location
 
-  // Download PDF function
   const handleDownloadPdf = (e, pdfUrl, fileName) => {
     e.stopPropagation()
-
-    // Create an anchor element and set properties
     const link = document.createElement("a")
     link.href = pdfUrl
     link.download = fileName || "document.pdf"
-
-    // Append to the document, click it, and remove it
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   }
 
-  // Event handlers for styling
-  const handleSearchInputFocus = (e) => {
-    e.target.style.borderColor = "#13274f"
-    e.target.style.boxShadow = "0 0 0 3px rgba(19, 39, 79, 0.1)"
-  }
-
-  const handleSearchInputBlur = (e) => {
-    e.target.style.borderColor = "#d1d5db"
-    e.target.style.boxShadow = "none"
-  }
-
-  const handleFormInputFocus = (e) => {
-    e.target.style.borderColor = "#13274f"
-    e.target.style.boxShadow = "0 0 0 3px rgba(19, 39, 79, 0.1)"
-  }
-
-  const handleFormInputBlur = (e) => {
-    e.target.style.borderColor = "#d1d5db"
-    e.target.style.boxShadow = "none"
-  }
-
-  const handleButtonHover = (e, hoverStyle) => {
-    Object.assign(e.target.style, hoverStyle)
-  }
-
-  const handleButtonLeave = (e, originalStyle) => {
-    Object.assign(e.target.style, originalStyle)
-  }
-
-  const handleDateItemHover = (e) => {
-    if (!draggedItem) {
-      e.currentTarget.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)"
-    }
-  }
-
-  const handleDateItemLeave = (e) => {
-    if (!draggedItem) {
-      e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)"
-    }
-  }
-
-  const handleActionBtnHover = (e, isEdit = false) => {
-    e.target.style.backgroundColor = isEdit ? "#f3f4f6" : "#fef2f2"
-    e.target.style.color = isEdit ? "#13274f" : "#ef4444"
-  }
-
-  const handleActionBtnLeave = (e) => {
-    e.target.style.backgroundColor = "transparent"
-    e.target.style.color = "#6b7280"
-  }
-
-  // Drag handle specific handlers
-  const handleDragAreaHover = (e) => {
-    e.target.style.backgroundColor = "rgba(19, 39, 79, 0.05)"
-  }
-
-  const handleDragAreaLeave = (e) => {
-    e.target.style.backgroundColor = "transparent"
-  }
-
-  // File upload area handlers
-  const handleFileAreaHover = (e) => {
-    e.target.style.borderColor = "#13274f"
-    e.target.style.backgroundColor = "#f0f4ff"
-  }
-
-  const handleFileAreaLeave = (e) => {
-    e.target.style.borderColor = "#d1d5db"
-    e.target.style.backgroundColor = "#f9fafb"
-  }
-
-  // Add this function after handleEdit
   const preloadPdfForEdit = async (date) => {
     if (date.pdfUrl && !date.pdfFile) {
       try {
-        // Fetch the PDF file
         const response = await fetch(date.pdfUrl)
         const blob = await response.blob()
-        const file = new File([blob], date.pdfName || "document.pdf", { type: "application/pdf" })
+        const file = new File([blob], date.pdfOriginalName || date.pdfName || "document.pdf", { type: "application/pdf" })
 
-        // Update the date with the file
         const updatedDate = { ...date, pdfFile: file }
-
-        // Update in the dates array
         setDates(dates.map((d) => (d.id === date.id ? updatedDate : d)))
-
-        // Update the editing form data
-        setFormData((prev) => ({
-          ...prev,
-          pdfFile: file,
-        }))
+        setFormData((prev) => ({ ...prev, pdfFile: file }))
 
         return file
       } catch (error) {
@@ -812,247 +903,360 @@ const ImportantDates = () => {
     return null
   }
 
+  const dateItemBaseClasses = "bg-white rounded-xl shadow-md p-6 transition-all duration-200 flex items-start justify-between relative cursor-pointer"
+  // Removed drag-and-drop specific classes:
+  // const dateItemDraggingClasses = "opacity-50 transform rotate-2 shadow-xl"
+  // const dateItemDragOverClasses = "border-t-4 border-[#13274f] mt-1"
+
+
   return (
-    <div style={styles.container}>
-      {/* Global loading overlay */}
+    <div className="min-h-screen bg-gray-50">
       {loading && (
-        <div style={styles.overlay}>
-          <div style={styles.loadingContainer}>
-            <Loader style={{ width: "32px", height: "32px", animation: "spin 1s linear infinite" }} />
-            <p style={styles.loadingText}>Loading...</p>
+        <div className="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-[2000]">
+          <div className="flex flex-col items-center justify-center p-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+            <Loader className="w-8 h-8 text-[#13274f] animate-spin" style={{ animation: "spin 1s linear infinite" }} />
+            <p className="text-gray-600 mt-3 text-sm">Loading...</p>
           </div>
         </div>
       )}
 
-      <div style={styles.mainContent}>
-        <div style={styles.header}>
-          <h1 style={styles.pageTitle}>Important Dates</h1>
-          <div style={styles.headerIcons}>
-            <Mail
-              style={styles.headerIcon}
-              onMouseEnter={(e) => (e.target.style.color = "#13274f")}
-              onMouseLeave={(e) => (e.target.style.color = "#6b7280")}
-            />
-            <Settings
-              style={styles.headerIcon}
-              onMouseEnter={(e) => (e.target.style.color = "#13274f")}
-              onMouseLeave={(e) => (e.target.style.color = "#6b7280")}
-            />
+      <div className="p-6 md:p-10">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold text-[#13274f] m-0">Important Dates</h1>
+          <div className="flex items-center gap-4">
+            <Mail className="w-6 h-6 text-gray-500 cursor-pointer hover:text-[#13274f] transition-colors" />
+            <Settings className="w-6 h-6 text-gray-500 cursor-pointer hover:text-[#13274f] transition-colors" />
           </div>
         </div>
 
-        <div style={styles.searchBarContainer}>
-          <div style={styles.searchInputWrapper}>
-            <Search style={styles.searchIcon} />
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 border-b border-gray-200">
+          <button
+            onClick={() => setActiveTab("general")}
+            className={`px-6 py-3 font-semibold text-sm transition-all duration-200 border-b-2 ${
+              activeTab === "general"
+                ? "text-[#13274f] border-[#13274f]"
+                : "text-gray-500 border-transparent hover:text-[#13274f]"
+            }`}
+          >
+            General
+          </button>
+          <button
+            onClick={() => setActiveTab("convocation")}
+            className={`px-6 py-3 font-semibold text-sm transition-all duration-200 border-b-2 ${
+              activeTab === "convocation"
+                ? "text-[#13274f] border-[#13274f]"
+                : "text-gray-500 border-transparent hover:text-[#13274f]"
+            }`}
+          >
+            Convocation Ceremony
+          </button>
+          <button
+            onClick={() => setActiveTab("attire")}
+            className={`px-6 py-3 font-semibold text-sm transition-all duration-200 border-b-2 ${
+              activeTab === "attire"
+                ? "text-[#13274f] border-[#13274f]"
+                : "text-gray-500 border-transparent hover:text-[#13274f]"
+            }`}
+          >
+            Academic Attire Collection
+          </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4 mb-6">
+          <div className="relative flex-1 max-w-sm min-w-[300px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by title, date, location..."
+              placeholder={activeTab === "general" ? "Search by title, date, location..." : "Search by faculty, location..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={styles.searchInput}
-              onFocus={handleSearchInputFocus}
-              onBlur={handleSearchInputBlur}
+              className="w-full py-3 pl-10 pr-4 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
             />
           </div>
           <button
-            style={{ ...styles.btn, ...styles.btnSearch }}
-            onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#0f1f3d" })}
-            onMouseLeave={(e) => handleButtonLeave(e, styles.btnSearch)}
+            className="flex items-center gap-2 px-6 py-3 border-none rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 whitespace-nowrap bg-[#13274f] text-white hover:bg-black"
           >
             SEARCH
           </button>
-          <button
-            onClick={() => setIsFilterModalOpen(true)}
-            style={{
-              ...styles.btn,
-              ...styles.btnFilter,
-              ...(hasActiveFilters ? { backgroundColor: "#13274f", color: "white" } : {}),
-            }}
-            onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#13274f", color: "white" })}
-            onMouseLeave={(e) =>
-              handleButtonLeave(e, hasActiveFilters ? { backgroundColor: "#13274f", color: "white" } : styles.btnFilter)
-            }
-          >
-            <Filter style={styles.btnIcon} />
-            Filter {hasActiveFilters && "(Active)"}
-          </button>
+          {activeTab === "general" && (
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 whitespace-nowrap ${
+                hasActiveFilters 
+                  ? 'bg-[#13274f] text-white border border-[#13274f] hover:bg-black' 
+                  : 'bg-transparent text-[#13274f] border border-[#13274f] hover:bg-[#13274f] hover:text-white'
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              Filter {hasActiveFilters && "(Active)"}
+            </button>
+          )}
           <button
             onClick={handleAddNew}
-            style={{ ...styles.btn, ...styles.btnAdd }}
-            onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#f59e0b" })}
-            onMouseLeave={(e) => handleButtonLeave(e, styles.btnAdd)}
+            className="flex items-center gap-2 px-6 py-3 border-none rounded-lg text-sm font-semibold cursor-pointer transition-all duration-200 whitespace-nowrap bg-[#fbbf24] text-black hover:bg-amber-500"
           >
-            <Plus style={styles.btnIcon} />
+            <Plus className="w-4 h-4" />
             ADD NEW
           </button>
         </div>
 
-        <div style={styles.datesList}>
-          {filteredDates.map((date) => (
-            <div
-              key={date.id}
-                style={{
-                  ...styles.dateItem,
-                  ...styles.dateItemClickable,
-                  borderLeft: `4px solid ${getDateColor(date.date, date.time)}`, // Updated this line
-                  ...(draggedItem?.id === date.id ? styles.dateItemDragging : {}),
-                  ...(dragOverItem?.id === date.id && draggedItem?.id !== date.id ? styles.dateItemDragOver : {}),
-                }}
-              onMouseEnter={handleDateItemHover}
-              onMouseLeave={handleDateItemLeave}
-            >
-              {/* Drag Handle Area - Only this area is draggable */}
+        {/* General Tab Content - Retains side color, no drag functionality */}
+        {activeTab === "general" && (
+          <div className="flex flex-col gap-4">
+            {filteredDates.map((date) => (
               <div
-                draggable
-                onDragStart={(e) => handleDragStart(e, date)}
-                onDragEnd={handleDragEnd}
-                onClick={(e) => e.stopPropagation()}
-                style={styles.dragHandleArea}
-                onMouseEnter={handleDragAreaHover}
-                onMouseLeave={handleDragAreaLeave}
+                key={date.id}
+                onClick={() => handleViewDate(date)}
+                style={{
+                  borderLeft: `4px solid ${getDateColor(date.date, date.time)}`, 
+                }}
+                // Removed drag-and-drop related classes and attributes
+                className={`${dateItemBaseClasses} hover:shadow-xl`}
               >
-                <GripVertical
-                  style={{
-                    ...styles.dragHandle,
-                    ...(draggedItem?.id === date.id ? styles.dragHandleActive : {}),
-                  }}
-                />
-              </div>
+                {/* Removed GripVertical and all drag-related handlers/logic */}
+                {/* <div className="absolute left-0 top-0 bottom-0 w-10 flex items-center justify-center cursor-grab rounded-l-lg transition-colors duration-200 hover:bg-[#13274f]/5">
+                  <GripVertical className="text-gray-400 transition-colors duration-200" />
+                </div> */}
 
-              <div style={styles.dateContent}>
-                <h3 style={styles.dateTitle}>{date.title}</h3>
-                <div style={styles.dateDetails}>
-                  <div style={styles.dateInfo}>
-                    <Calendar style={styles.infoIcon} />
-                    <span style={styles.infoText}>{formatDateDisplay(date.date, date.time)}</span>
-                  </div>
-                  <div style={styles.dateInfo}>
-                    <MapPin style={styles.infoIcon} />
-                    <span style={styles.infoText}>{date.location}</span>
-                  </div>
-                  {date.pdfUrl && (
-                    <div style={styles.pdfIndicator}>
-                      <FileText style={{ width: "12px", height: "12px" }} />
-                      {date.pdfOriginalName || date.pdfName || "PDF Attachment"}
+                <div className="flex-1 ml-4"> {/* Adjusted margin from ml-12 to ml-4 */}
+                  <h3 className="text-lg font-semibold text-gray-800 m-0 mb-3">{date.title}</h3>
+                  <div className="flex items-center gap-6 text-gray-600 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-sm">{formatDateDisplay(date.date, date.time)}</span>
                     </div>
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      <span className="text-sm">{date.location}</span>
+                    </div>
+                    {date.pdfUrl && (
+                      <div className="flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                        <FileText className="w-3 h-3" />
+                        {date.pdfOriginalName || date.pdfName || "PDF Attachment"}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 ml-4">
+                  {date.pdfUrl && (
+                    <button
+                      onClick={(e) => handleDownloadPdf(e, date.pdfUrl, date.pdfName)}
+                      className="flex items-center justify-center w-9 h-9 border-none rounded-md bg-transparent text-gray-500 cursor-pointer transition-all duration-200 hover:bg-sky-50 hover:text-sky-700"
+                      title="Download PDF"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
                   )}
+                  <button
+                    onClick={(e) => handleEdit(e, date)}
+                    className="flex items-center justify-center w-9 h-9 border-none rounded-md bg-transparent text-gray-500 cursor-pointer transition-all duration-200 hover:bg-gray-100 hover:text-[#13274f]"
+                    title="Edit"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => handleDelete(e, date.id)}
+                    className="flex items-center justify-center w-9 h-9 border-none rounded-md bg-transparent text-gray-500 cursor-pointer transition-all duration-200 hover:bg-red-50 hover:text-red-600"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-              <div style={styles.dateActions}>
-                {date.pdfUrl && (
-                  <button
-                    onClick={(e) => handleDownloadPdf(e, date.pdfUrl, date.pdfName)}
-                    style={styles.actionBtn}
-                    onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = "#f0f9ff"
-                      e.target.style.color = "#0369a1"
-                    }}
-                    onMouseLeave={handleActionBtnLeave}
-                    title="Download PDF"
-                  >
-                    <Download style={styles.actionIcon} />
-                  </button>
-                )}
-                <button
-                  onClick={(e) => handleEdit(e, date)}
-                  style={styles.actionBtn}
-                  onMouseEnter={(e) => handleActionBtnHover(e, true)}
-                  onMouseLeave={handleActionBtnLeave}
-                >
-                  <Edit style={styles.actionIcon} />
-                </button>
-                <button
-                  onClick={(e) => handleDelete(e, date.id)}
-                  style={styles.actionBtn}
-                  onMouseEnter={(e) => handleActionBtnHover(e, false)}
-                  onMouseLeave={handleActionBtnLeave}
-                >
-                  <Trash2 style={styles.actionIcon} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
 
-        {!loading && filteredDates.length === 0 && (
-          <div style={styles.noResults}>
-            <p style={styles.noResultsText}>
-              {hasActiveFilters || searchTerm ? "No dates match your search criteria." : "No important dates found."}
-            </p>
+            {!loading && filteredDates.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-lg text-gray-600 m-0">
+                  {hasActiveFilters || searchTerm ? "No dates match your search criteria." : "No important dates found."}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Convocation Ceremony Tab Content - Removed side color */}
+        {activeTab === "convocation" && (
+          <div className="flex flex-col gap-4">
+            {filteredConvocation.map((schedule) => (
+              <div
+                key={schedule.id}
+                // Removed inline style for borderLeft color
+                className="bg-white rounded-xl shadow-md p-6 transition-all duration-200 hover:shadow-xl border-l-4 border-gray-200" // Added a neutral light gray border for consistency
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-800 m-0 mb-3">{FACULTY_OPTIONS.find(f => f.id === schedule.faculty)?.name || schedule.faculty}</h3>
+                    <div className="flex items-center gap-6 text-gray-600 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span className="text-sm">{formatDateDisplay(schedule.date, "")}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        <span className="text-sm">{schedule.timeSlot}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        <span className="text-sm">{schedule.location}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={(e) => handleEdit(e, schedule)}
+                      className="flex items-center justify-center w-9 h-9 border-none rounded-md bg-transparent text-gray-500 cursor-pointer transition-all duration-200 hover:bg-gray-100 hover:text-[#13274f]"
+                      title="Edit"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(e, schedule.id)}
+                      className="flex items-center justify-center w-9 h-9 border-none rounded-md bg-transparent text-gray-500 cursor-pointer transition-all duration-200 hover:bg-red-50 hover:text-red-600"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {!loading && filteredConvocation.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-lg text-gray-600 m-0">
+                  {searchTerm ? "No schedules match your search criteria." : "No convocation ceremony schedules found."}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Academic Attire Collection Tab Content - Removed side color */}
+        {activeTab === "attire" && (
+          <div className="flex flex-col gap-4">
+            {filteredAttire.map((schedule) => (
+              <div
+                key={schedule.id}
+                // Removed inline style for borderLeft color
+                className="bg-white rounded-xl shadow-md p-6 transition-all duration-200 hover:shadow-xl border-l-4 border-gray-200" // Added a neutral light gray border for consistency
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-800 m-0 mb-3">{FACULTY_OPTIONS.find(f => f.id === schedule.faculty)?.name || schedule.faculty}</h3>
+                    <div className="flex items-center gap-6 text-gray-600 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span className="text-sm">{formatDateDisplay(schedule.date, "")}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4" />
+                        <span className="text-sm">{schedule.timeSlot}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        <span className="text-sm">{schedule.location}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    <button
+                      onClick={(e) => handleEdit(e, schedule)}
+                      className="flex items-center justify-center w-9 h-9 border-none rounded-md bg-transparent text-gray-500 cursor-pointer transition-all duration-200 hover:bg-gray-100 hover:text-[#13274f]"
+                      title="Edit"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(e, schedule.id)}
+                      className="flex items-center justify-center w-9 h-9 border-none rounded-md bg-transparent text-gray-500 cursor-pointer transition-all duration-200 hover:bg-red-50 hover:text-red-600"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {!loading && filteredAttire.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-lg text-gray-600 m-0">
+                  {searchTerm ? "No schedules match your search criteria." : "No academic attire collection schedules found."}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
 
+      {/* View Modal, Filter Modal, Add Modal, and Edit Modal remain the same */}
+      {/* ... (View Modal JSX) ... */}
+      {/* ... (Filter Modal JSX) ... */}
+      {/* ... (Add Modal JSX) ... */}
+      {/* ... (Edit Modal JSX) ... */}
+
       {/* View Modal */}
       {isViewModalOpen && viewingDate && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.viewModalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>View Important Date</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" onClick={closeModal}>
+          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto m-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 mb-6">
+              <h2 className="text-xl font-semibold text-[#13274f] m-0">View Important Date</h2>
               <button
                 onClick={closeModal}
-                style={styles.modalClose}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#f3f4f6"
-                  e.target.style.color = "#374151"
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "transparent"
-                  e.target.style.color = "#6b7280"
-                }}
+                className="bg-transparent border-none text-gray-500 text-2xl cursor-pointer p-0 w-8 h-8 flex items-center justify-center rounded-md transition-all duration-200 hover:bg-gray-100 hover:text-gray-700"
               >
-                ×
+                &times;
               </button>
             </div>
-            <div style={styles.viewContent}>
-              <div style={styles.viewSection}>
-                <h3 style={styles.viewSectionTitle}>Title</h3>
-                <p style={styles.viewSectionContent}>{viewingDate.title}</p>
+            <div className="p-6 pt-0">
+              <div className="mb-6">
+                <h3 className="text-base font-semibold text-gray-700 mb-2">Title</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{viewingDate.title}</p>
               </div>
 
-              <div style={styles.viewSection}>
-                <h3 style={styles.viewSectionTitle}>Date & Time</h3>
-                <p style={styles.viewSectionContent}>{formatDateDisplay(viewingDate.date, viewingDate.time)}</p>
+              <div className="mb-6">
+                <h3 className="text-base font-semibold text-gray-700 mb-2">Date & Time</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{formatDateDisplay(viewingDate.date, viewingDate.time)}</p>
               </div>
 
-              <div style={styles.viewSection}>
-                <h3 style={styles.viewSectionTitle}>Location</h3>
-                <p style={styles.viewSectionContent}>{viewingDate.location}</p>
+              <div className="mb-6">
+                <h3 className="text-base font-semibold text-gray-700 mb-2">Location</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{viewingDate.location}</p>
               </div>
 
-              <div style={styles.viewSection}>
-                <div style={styles.pdfHeader}>
-                  <h3 style={styles.viewSectionTitle}>Guideline (PDF)</h3>
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-base font-semibold text-gray-700 m-0">Guideline (PDF)</h3>
                   {viewingDate.pdfUrl && (
                     <button
-                      style={styles.downloadBtn}
+                      className="flex items-center gap-1 px-3 py-1 bg-blue-800 text-white rounded-md text-xs font-medium cursor-pointer border-none transition-colors duration-200 hover:bg-blue-900"
                       onClick={(e) => handleDownloadPdf(e, viewingDate.pdfUrl, viewingDate.pdfName)}
-                      onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#1e3a8a" })}
-                      onMouseLeave={(e) => handleButtonLeave(e, { backgroundColor: "#1e40af" })}
                     >
-                      <Download style={{ width: "14px", height: "14px" }} />
+                      <Download className="w-3.5 h-3.5" />
                       Download PDF
                     </button>
                   )}
                 </div>
 
                 {viewingDate.loadingPdf ? (
-                  <div style={styles.loadingContainer}>
-                    <Loader style={{ width: "32px", height: "32px", animation: "spin 1s linear infinite" }} />
-                    <p style={styles.loadingText}>Loading PDF...</p>
+                  <div className="flex flex-col items-center justify-center p-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    <Loader className="w-8 h-8 text-[#13274f] animate-spin" />
+                    <p className="text-gray-600 mt-3 text-sm">Loading PDF...</p>
                   </div>
                 ) : viewingDate.pdfError ? (
-                  <div style={styles.noPdfMessage}>
-                    <FileText style={{ width: "48px", height: "48px", margin: "0 auto 16px", color: "#ef4444" }} />
+                  <div className="text-center p-10 text-red-500 bg-gray-50 rounded-lg border border-dashed border-red-300">
+                    <FileText className="w-12 h-12 mx-auto mb-4 text-red-500" />
                     <p>Error loading PDF. Please try again.</p>
                   </div>
                 ) : viewingDate.pdfFile ? (
-                  <iframe src={URL.createObjectURL(viewingDate.pdfFile)} style={styles.pdfViewer} title="PDF Viewer" />
+                  <iframe src={URL.createObjectURL(viewingDate.pdfFile)} className="w-full h-[400px] border border-gray-300 rounded-lg" title="PDF Viewer" />
                 ) : viewingDate.pdfUrl ? (
-                  <iframe src={viewingDate.pdfUrl} style={styles.pdfViewer} title="PDF Viewer" />
+                  <iframe src={viewingDate.pdfUrl} className="w-full h-[400px] border border-gray-300 rounded-lg" title="PDF Viewer" />
                 ) : (
-                  <div style={styles.noPdfMessage}>
-                    <FileText style={{ width: "48px", height: "48px", margin: "0 auto 16px", color: "#d1d5db" }} />
+                  <div className="text-center p-10 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                     <p>No PDF guideline attached to this date.</p>
                   </div>
                 )}
@@ -1064,68 +1268,52 @@ const ImportantDates = () => {
 
       {/* Filter Modal */}
       {isFilterModalOpen && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Filter Important Dates</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" onClick={closeModal}>
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 mb-6">
+              <h2 className="text-xl font-semibold text-[#13274f] m-0">Filter Important Dates</h2>
               <button
                 onClick={closeModal}
-                style={styles.modalClose}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#f3f4f6"
-                  e.target.style.color = "#374151"
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "transparent"
-                  e.target.style.color = "#6b7280"
-                }}
+                className="bg-transparent border-none text-gray-500 text-2xl cursor-pointer p-0 w-8 h-8 flex items-center justify-center rounded-md transition-all duration-200 hover:bg-gray-100 hover:text-gray-700"
               >
-                ×
+                &times;
               </button>
             </div>
-            <div style={styles.modalForm}>
-              <div style={styles.filterSection}>
-                <label style={styles.filterLabel}>Date From:</label>
+            <div className="p-6 pt-0">
+              <div className="flex items-center gap-3 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label className="text-sm font-medium text-gray-700 min-w-[80px]">Date From:</label>
                 <input
                   type="date"
                   value={filters.dateFrom}
                   onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
-                  style={styles.filterInput}
-                  onFocus={handleFormInputFocus}
-                  onBlur={handleFormInputBlur}
+                  className="p-2 border border-gray-300 rounded-md text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
                 />
               </div>
-              <div style={styles.filterSection}>
-                <label style={styles.filterLabel}>Date To:</label>
+              <div className="flex items-center gap-3 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label className="text-sm font-medium text-gray-700 min-w-[80px]">Date To:</label>
                 <input
                   type="date"
                   value={filters.dateTo}
                   onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-                  style={styles.filterInput}
-                  onFocus={handleFormInputFocus}
-                  onBlur={handleFormInputBlur}
+                  className="p-2 border border-gray-300 rounded-md text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
                 />
               </div>
-              <div style={styles.filterSection}>
-                <label style={styles.filterLabel}>Location:</label>
+              <div className="flex items-center gap-3 mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <label className="text-sm font-medium text-gray-700 min-w-[80px]">Location:</label>
                 <input
                   type="text"
                   placeholder="Filter by location..."
                   value={filters.location}
                   onChange={(e) => setFilters({ ...filters, location: e.target.value })}
-                  style={styles.filterInput}
-                  onFocus={handleFormInputFocus}
-                  onBlur={handleFormInputBlur}
+                  className="p-2 border border-gray-300 rounded-md text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10 flex-1"
                 />
               </div>
-              <div style={styles.modalActions}>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={clearFilters}
-                    style={{ ...styles.btn, ...styles.clearFiltersBtn }}
-                    onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#dc2626" })}
-                    onMouseLeave={(e) => handleButtonLeave(e, styles.clearFiltersBtn)}
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg text-white bg-red-500 hover:bg-red-700 transition-colors"
                   >
                     Clear Filters
                   </button>
@@ -1133,17 +1321,13 @@ const ImportantDates = () => {
                 <button
                   type="button"
                   onClick={closeModal}
-                  style={{ ...styles.btn, ...styles.btnCancel }}
-                  onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#f9fafb", color: "#374151" })}
-                  onMouseLeave={(e) => handleButtonLeave(e, styles.btnCancel)}
+                  className="px-6 py-3 border border-gray-300 rounded-lg text-sm font-semibold text-gray-600 bg-transparent hover:bg-gray-50 hover:text-gray-700 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={closeModal}
-                  style={{ ...styles.btn, ...styles.btnSubmit }}
-                  onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#0f1f3d" })}
-                  onMouseLeave={(e) => handleButtonLeave(e, styles.btnSubmit)}
+                  className="px-6 py-3 rounded-lg text-sm font-semibold text-white bg-[#13274f] hover:bg-black transition-colors"
                 >
                   Apply Filters
                 </button>
@@ -1155,152 +1339,197 @@ const ImportantDates = () => {
 
       {/* Add Modal */}
       {isAddModalOpen && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Add New Important Date</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" onClick={closeModal}>
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 mb-6">
+              <h2 className="text-xl font-semibold text-[#13274f] m-0">
+                Add New {activeTab === "general" ? "Important Date" : activeTab === "convocation" ? "Convocation Ceremony" : "Attire Collection Schedule"}
+              </h2>
               <button
                 onClick={closeModal}
-                style={styles.modalClose}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#f3f4f6"
-                  e.target.style.color = "#374151"
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "transparent"
-                  e.target.style.color = "#6b7280"
-                }}
+                className="bg-transparent border-none text-gray-500 text-2xl cursor-pointer p-0 w-8 h-8 flex items-center justify-center rounded-md transition-all duration-200 hover:bg-gray-100 hover:text-gray-700"
               >
-                ×
+                &times;
               </button>
             </div>
-            <form onSubmit={handleSubmitAdd} style={styles.modalForm}>
-              <div style={styles.formGroup}>
-                <label htmlFor="title" style={styles.formLabel}>
-                  Title *
-                </label>
-                <textarea
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter event title"
-                  required
-                  style={styles.formTextarea}
-                  rows={3}
-                  onFocus={handleFormInputFocus}
-                  onBlur={handleFormInputBlur}
-                />
-              </div>
-              <div style={styles.formRow}>
-                <div style={styles.formGroup}>
-                  <label htmlFor="date" style={styles.formLabel}>
-                    Start Date *
-                  </label>
-                  <input
-                    id="date"
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    required
-                    style={styles.formInput}
-                    onFocus={handleFormInputFocus}
-                    onBlur={handleFormInputBlur}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label htmlFor="time" style={styles.formLabel}>
-                    End Date (Optional)
-                  </label>
-                  <input
-                    id="time"
-                    type="date"
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                    style={styles.formInput}
-                    onFocus={handleFormInputFocus}
-                    onBlur={handleFormInputBlur}
-                  />
-                </div>
-              </div>
-              <div style={styles.formGroup}>
-                <label htmlFor="location" style={styles.formLabel}>
-                  Location *
-                </label>
-                <input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Enter location"
-                  required
-                  style={styles.formInput}
-                  onFocus={handleFormInputFocus}
-                  onBlur={handleFormInputBlur}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>PDF Guideline (Optional)</label>
-                <div
-                  style={styles.fileUploadArea}
-                  onClick={() => fileInputRef.current?.click()}
-                  onMouseEnter={handleFileAreaHover}
-                  onMouseLeave={handleFileAreaLeave}
-                >
-                  <Upload style={{ width: "24px", height: "24px", color: "#6b7280", margin: "0 auto" }} />
-                  <p style={styles.fileUploadText}>Click to upload PDF or drag and drop</p>
-                  <p style={{ ...styles.fileUploadText, fontSize: "12px" }}>PDF files only, max 10MB</p>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={(e) => handleFileUpload(e, false)}
-                  style={{ display: "none" }}
-                />
-                {formData.pdfFile && (
-                  <div style={styles.fileSelected}>
-                    <div style={styles.fileInfo}>
-                      <FileText style={{ width: "16px", height: "16px" }} />
-                      <span>{formData.pdfFile.name}</span>
-                      <span style={{ color: "#9ca3af", fontSize: "12px" }}>
-                        ({(formData.pdfFile.size / 1024 / 1024).toFixed(2)} MB)
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(false)}
-                      style={styles.removeFileBtn}
-                      onMouseEnter={(e) => (e.target.style.backgroundColor = "#fef2f2")}
-                      onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}
-                    >
-                      <X style={{ width: "16px", height: "16px" }} />
-                    </button>
+            <form onSubmit={handleSubmitAdd} className="p-6 pt-0">
+              {activeTab === "general" ? (
+                <>
+                  <div className="mb-5">
+                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Title *
+                    </label>
+                    <textarea
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="Enter event title"
+                      required
+                      rows={3}
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 resize-y min-h-[80px] focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
                   </div>
-                )}
-              </div>
-              <div style={styles.modalActions}>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="mb-5">
+                      <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Start Date *
+                      </label>
+                      <input
+                        id="date"
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                        required
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                      />
+                    </div>
+                    <div className="mb-5">
+                      <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1.5">
+                        End Date (Optional)
+                      </label>
+                      <input
+                        id="time"
+                        type="date"
+                        value={formData.time}
+                        onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                      />
+                    </div>
+                  </div>
+                  <div className="mb-5">
+                    <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Platform/Location *
+                    </label>
+                    <input
+                      id="location"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="Enter location"
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
+                  </div>
+                  <div className="mb-5">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">PDF Guideline (Optional)</label>
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50 transition-all duration-200 cursor-pointer hover:border-[#13274f] hover:bg-blue-50"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="w-6 h-6 text-gray-500 mx-auto" />
+                      <p className="text-gray-600 text-sm mt-2 mb-0">Click to upload PDF or drag and drop</p>
+                      <p className="text-gray-600 text-xs mt-0">PDF files only, max 10MB</p>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                    {formData.pdfFile && (
+                      <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-500 rounded-lg mt-2">
+                        <div className="flex items-center gap-2 text-blue-700 text-sm">
+                          <FileText className="w-4 h-4" />
+                          <span>{formData.pdfFile.name}</span>
+                          <span className="text-gray-400 text-xs ml-1">
+                            ({(formData.pdfFile.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(false)}
+                          className="bg-transparent border-none text-red-500 cursor-pointer p-1 rounded-sm transition-colors duration-200 hover:bg-red-50"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-5">
+                    <label htmlFor="faculty" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Faculty *
+                    </label>
+                    <select
+                      id="faculty"
+                      value={formData.faculty}
+                      onChange={(e) => setFormData({ ...formData, faculty: e.target.value })}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                  >
+                      <option value="">Select Faculty</option>
+                      {FACULTY_OPTIONS.map((faculty) => (
+                          <option key={faculty.value} value={faculty.value}>
+                              {faculty.label}
+                          </option>
+                      ))}
+                  </select>
+                  </div>
+                  <div className="mb-5">
+                    <label htmlFor="schedule-date" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Date *
+                    </label>
+                    <input
+                      id="schedule-date"
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
+                  </div>
+                  <div className="mb-5">
+                    <label htmlFor="timeSlot" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Time Slot *
+                    </label>
+                    <input
+                      id="timeSlot"
+                      type="text"
+                      value={formData.timeSlot}
+                      onChange={(e) => setFormData({ ...formData, timeSlot: e.target.value })}
+                      placeholder="e.g., 9:00 AM - 11:00 AM"
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
+                  </div>
+                  <div className="mb-5">
+                    <label htmlFor="schedule-location" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Location *
+                    </label>
+                    <input
+                      id="schedule-location"
+                      type="text"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="Enter location"
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
                 <button
                   type="button"
                   onClick={closeModal}
-                  style={{ ...styles.btn, ...styles.btnCancel }}
-                  onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#f9fafb", color: "#374151" })}
-                  onMouseLeave={(e) => handleButtonLeave(e, styles.btnCancel)}
+                  className="px-6 py-3 border border-gray-300 rounded-lg text-sm font-semibold text-gray-600 bg-transparent hover:bg-gray-50 hover:text-gray-700 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  style={{ ...styles.btn, ...styles.btnSubmit }}
-                  onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#0f1f3d" })}
-                  onMouseLeave={(e) => handleButtonLeave(e, styles.btnSubmit)}
+                  className="flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white bg-[#13274f] hover:bg-black transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   disabled={loading}
                 >
                   {loading ? (
                     <>
-                      <Loader style={{ width: "16px", height: "16px", animation: "spin 1s linear infinite" }} />
+                      <Loader className="w-4 h-4 animate-spin" />
                       Adding...
                     </>
                   ) : (
-                    "Add Date"
+                    `Add ${activeTab === "general" ? "Date" : "Schedule"}`
                   )}
                 </button>
               </div>
@@ -1311,170 +1540,218 @@ const ImportantDates = () => {
 
       {/* Edit Modal */}
       {isEditModalOpen && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Edit Important Date</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" onClick={closeModal}>
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 mb-6">
+              <h2 className="text-xl font-semibold text-[#13274f] m-0">
+                Edit {activeTab === "general" ? "Important Date" : activeTab === "convocation" ? "Convocation Ceremony" : "Attire Collection Schedule"}
+              </h2>
               <button
                 onClick={closeModal}
-                style={styles.modalClose}
-                onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = "#f3f4f6"
-                  e.target.style.color = "#374151"
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = "transparent"
-                  e.target.style.color = "#6b7280"
-                }}
+                className="bg-transparent border-none text-gray-500 text-2xl cursor-pointer p-0 w-8 h-8 flex items-center justify-center rounded-md transition-all duration-200 hover:bg-gray-100 hover:text-gray-700"
               >
-                ×
+                &times;
               </button>
             </div>
-            <form onSubmit={handleSubmitEdit} style={styles.modalForm}>
-              <div style={styles.formGroup}>
-                <label htmlFor="edit-title" style={styles.formLabel}>
-                  Title *
-                </label>
-                <textarea
-                  id="edit-title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter event title"
-                  required
-                  style={styles.formTextarea}
-                  rows={3}
-                  onFocus={handleFormInputFocus}
-                  onBlur={handleFormInputBlur}
-                />
-              </div>
-              <div style={styles.formRow}>
-                <div style={styles.formGroup}>
-                  <label htmlFor="edit-date" style={styles.formLabel}>
-                    Start Date *
-                  </label>
-                  <input
-                    id="edit-date"
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    required
-                    style={styles.formInput}
-                    onFocus={handleFormInputFocus}
-                    onBlur={handleFormInputBlur}
-                  />
-                </div>
-                <div style={styles.formGroup}>
-                  <label htmlFor="edit-time" style={styles.formLabel}>
-                    End Date (Optional)
-                  </label>
-                  <input
-                    id="edit-time"
-                    type="date"
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                    style={styles.formInput}
-                    onFocus={handleFormInputFocus}
-                    onBlur={handleFormInputBlur}
-                  />
-                </div>
-              </div>
-              <div style={styles.formGroup}>
-                <label htmlFor="edit-location" style={styles.formLabel}>
-                  Location *
-                </label>
-                <input
-                  id="edit-location"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Enter location"
-                  required
-                  style={styles.formInput}
-                  onFocus={handleFormInputFocus}
-                  onBlur={handleFormInputBlur}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>PDF Guideline (Optional)</label>
-                {formData.pdfUrl && !formData.pdfFile && (
-                  <div style={styles.fileSelected}>
-                    <div style={styles.fileInfo}>
-                      <FileText style={{ width: "16px", height: "16px" }} />
-                      <span>{formData.pdfName || "Current PDF"}</span>
-                      <span style={{ color: "#0369a1", fontSize: "12px", marginLeft: "4px" }}>(Current PDF)</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, pdfUrl: "", pdfName: "" })}
-                      style={styles.removeFileBtn}
-                      onMouseEnter={(e) => (e.target.style.backgroundColor = "#fef2f2")}
-                      onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}
-                    >
-                      <X style={{ width: "16px", height: "16px" }} />
-                    </button>
+            <form onSubmit={handleSubmitEdit} className="p-6 pt-0">
+              {activeTab === "general" ? (
+                <>
+                  <div className="mb-5">
+                    <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Title *
+                    </label>
+                    <textarea
+                      id="edit-title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="Enter event title"
+                      required
+                      rows={3}
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 resize-y min-h-[80px] focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
                   </div>
-                )}
-                <div
-                  style={styles.fileUploadArea}
-                  onClick={() => editFileInputRef.current?.click()}
-                  onMouseEnter={handleFileAreaHover}
-                  onMouseLeave={handleFileAreaLeave}
-                >
-                  <Upload style={{ width: "24px", height: "24px", color: "#6b7280", margin: "0 auto" }} />
-                  <p style={styles.fileUploadText}>Click to upload new PDF or drag and drop</p>
-                  <p style={{ ...styles.fileUploadText, fontSize: "12px" }}>PDF files only, max 10MB</p>
-                </div>
-                <input
-                  ref={editFileInputRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={(e) => handleFileUpload(e, true)}
-                  style={{ display: "none" }}
-                />
-                {formData.pdfFile && (
-                  <div style={styles.fileSelected}>
-                    <div style={styles.fileInfo}>
-                      <FileText style={{ width: "16px", height: "16px" }} />
-                      <span>{formData.pdfFile.name}</span>
-                      <span style={{ color: "#9ca3af", fontSize: "12px" }}>
-                        ({(formData.pdfFile.size / 1024 / 1024).toFixed(2)} MB)
-                      </span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="mb-5">
+                      <label htmlFor="edit-date" className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Start Date *
+                      </label>
+                      <input
+                        id="edit-date"
+                        type="date"
+                        value={formData.date}
+                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                        required
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                      />
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(true)}
-                      style={styles.removeFileBtn}
-                      onMouseEnter={(e) => (e.target.style.backgroundColor = "#fef2f2")}
-                      onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}
-                    >
-                      <X style={{ width: "16px", height: "16px" }} />
-                    </button>
+                    <div className="mb-5">
+                      <label htmlFor="edit-time" className="block text-sm font-medium text-gray-700 mb-1.5">
+                        End Date (Optional)
+                      </label>
+                      <input
+                        id="edit-time"
+                        type="date"
+                        value={formData.time}
+                        onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                        className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                      />
+                    </div>
                   </div>
-                )}
-              </div>
-              <div style={styles.modalActions}>
+                  <div className="mb-5">
+                    <label htmlFor="edit-location" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Platform / Location *
+                    </label>
+                    <input
+                      id="edit-location"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="Enter location"
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
+                  </div>
+                  <div className="mb-5">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">PDF Guideline (Optional)</label>
+
+                    {formData.pdfUrl && !formData.pdfFile && (
+                      <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-500 rounded-lg mb-2">
+                        <div className="flex items-center gap-2 text-blue-700 text-sm">
+                          <FileText className="w-4 h-4" />
+                          <span>{formData.pdfOriginalName || formData.pdfName || "Current PDF"}</span>
+                          <span className="text-blue-700 text-xs ml-1">(Current PDF)</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, pdfUrl: "", pdfName: "", pdfFile: null })} // Remove URL and file reference
+                          className="bg-transparent border-none text-red-500 cursor-pointer p-1 rounded-sm transition-colors duration-200 hover:bg-red-50"
+                          title="Remove current PDF"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50 transition-all duration-200 cursor-pointer hover:border-[#13274f] hover:bg-blue-50"
+                      onClick={() => editFileInputRef.current?.click()}
+                    >
+                      <Upload className="w-6 h-6 text-gray-500 mx-auto" />
+                      <p className="text-gray-600 text-sm mt-2 mb-0">Click to upload new PDF or drag and drop</p>
+                      <p className="text-gray-600 text-xs mt-0">PDF files only, max 10MB</p>
+                    </div>
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept=".pdf"
+                      onChange={(e) => handleFileUpload(e, true)}
+                      className="hidden"
+                    />
+
+                    {formData.pdfFile && (
+                      <div className={`flex items-center justify-between p-3 border rounded-lg mt-2 ${formData.pdfUrl && !editFileInputRef.current?.value ? 'bg-blue-50 border-blue-500' : 'bg-green-50 border-green-500'}`}>
+                        <div className="flex items-center gap-2 text-green-700 text-sm">
+                          <FileText className="w-4 h-4" />
+                          <span>{formData.pdfFile.name}</span>
+                          <span className="text-gray-400 text-xs ml-1">
+                            ({(formData.pdfFile.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(true)}
+                          className="bg-transparent border-none text-red-500 cursor-pointer p-1 rounded-sm transition-colors duration-200 hover:bg-red-50"
+                          title="Remove uploaded file"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mb-5">
+                    <label htmlFor="edit-faculty" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Faculty *
+                    </label>
+                    <select
+                      id="edit-faculty"
+                      value={formData.faculty}
+                      onChange={(e) => setFormData({ ...formData, faculty: e.target.value })}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    >
+                      <option value="">Select Faculty</option>
+                      {FACULTY_OPTIONS.map((faculty) => (
+                        <option key={faculty.id} value={faculty.id}>
+                          {faculty.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mb-5">
+                    <label htmlFor="edit-schedule-date" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Date *
+                    </label>
+                    <input
+                      id="edit-schedule-date"
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
+                  </div>
+                  <div className="mb-5">
+                    <label htmlFor="edit-timeSlot" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Time Slot *
+                    </label>
+                    <input
+                      id="edit-timeSlot"
+                      type="text"
+                      value={formData.timeSlot}
+                      onChange={(e) => setFormData({ ...formData, timeSlot: e.target.value })}
+                      placeholder="e.g., 9:00 AM - 11:00 AM"
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
+                  </div>
+                  <div className="mb-5">
+                    <label htmlFor="edit-schedule-location" className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Location *
+                    </label>
+                    <input
+                      id="edit-schedule-location"
+                      type="text"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="Enter location"
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg text-sm outline-none transition-all duration-200 focus:border-[#13274f] focus:ring-3 focus:ring-[#13274f]/10"
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
                 <button
                   type="button"
                   onClick={closeModal}
-                  style={{ ...styles.btn, ...styles.btnCancel }}
-                  onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#f9fafb", color: "#374151" })}
-                  onMouseLeave={(e) => handleButtonLeave(e, styles.btnCancel)}
+                  className="px-6 py-3 border border-gray-300 rounded-lg text-sm font-semibold text-gray-600 bg-transparent hover:bg-gray-50 hover:text-gray-700 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  style={{ ...styles.btn, ...styles.btnSubmit }}
-                  onMouseEnter={(e) => handleButtonHover(e, { backgroundColor: "#0f1f3d" })}
-                  onMouseLeave={(e) => handleButtonLeave(e, styles.btnSubmit)}
+                  className="flex items-center gap-2 px-6 py-3 rounded-lg text-sm font-semibold text-white bg-[#13274f] hover:bg-black transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                   disabled={loading}
                 >
                   {loading ? (
                     <>
-                      <Loader style={{ width: "16px", height: "16px", animation: "spin 1s linear infinite" }} />
+                      <Loader className="w-4 h-4 animate-spin" />
                       Updating...
                     </>
                   ) : (
-                    "Update Date"
+                    `Update ${activeTab === "general" ? "Date" : "Schedule"}`
                   )}
                 </button>
               </div>

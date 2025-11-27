@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Search, Mail, Settings, MapPin, Edit, Trash2, Plus, X, Loader } from "lucide-react";
 
-// Firebase imports
 import { db } from "../firebaseConfig";
 import {
   collection,
@@ -14,7 +13,6 @@ import {
   orderBy,
   serverTimestamp,
 } from "firebase/firestore";
-import styles from '../StyleSheetWeb/navigation.styles.js';
 
 const Navigation = () => {
   const [locations, setLocations] = useState([]);
@@ -200,111 +198,101 @@ const Navigation = () => {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen bg-gray-50">
       {/* Global loading overlay */}
       {loading && (
-        <div style={styles.overlay}>
-          <div style={styles.loadingContainer}>
-            <Loader style={{ width: "32px", height: "32px", animation: "spin 1s linear infinite" }} />
-            <p style={styles.loadingText}>Loading...</p>
+        <div className="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-[2000]">
+          <div className="flex flex-col items-center justify-center p-10">
+            {/* Using a custom class for spin animation since inline style wasn't possible */}
+            <Loader className="w-8 h-8 animate-spin text-gray-400" />
+            <p className="text-gray-600 mt-3 text-sm">Loading...</p>
           </div>
         </div>
       )}
 
-      <div style={styles.mainContent}>
-        <div style={styles.header}>
-          <h1 style={styles.pageTitle}>Navigation</h1>
-          <div style={styles.headerIcons}>
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-bold text-[#13274f] m-0">Navigation</h1>
+          <div className="flex items-center space-x-4">
+            {/* Mail Icon with Hover Effect */}
             <Mail
-              style={styles.headerIcon}
-              onMouseEnter={(e) => (e.target.style.color = "#13274f")}
-              onMouseLeave={(e) => (e.target.style.color = "#6b7280")}
+              className="w-6 h-6 text-gray-500 cursor-pointer transition duration-200 hover:text-[#13274f]"
             />
+            {/* Settings Icon with Hover Effect */}
             <Settings
-              style={styles.headerIcon}
-              onMouseEnter={(e) => (e.target.style.color = "#13274f")}
-              onMouseLeave={(e) => (e.target.style.color = "#6b7280")}
+              className="w-6 h-6 text-gray-500 cursor-pointer transition duration-200 hover:text-[#13274f]"
             />
           </div>
         </div>
 
-        <div style={styles.searchBarContainer}>
-          <div style={styles.searchInputWrapper}>
-            <Search style={styles.searchIcon} />
+        {/* Search Bar and Buttons */}
+        <div className="flex flex-wrap items-center gap-4 mb-6">
+          <div className="relative flex-1 max-w-lg min-w-[300px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
               placeholder="Search by location"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={styles.searchInput}
+              className="w-full py-3 pr-3 pl-10 border border-gray-300 rounded-lg text-sm outline-none transition duration-200 focus:border-blue-500 box-border"
             />
           </div>
-          <button style={{ ...styles.btn, ...styles.btnSearch }}>SEARCH</button>
-          <button onClick={handleAddNew} style={{ ...styles.btn, ...styles.btnAdd }}>
-            <Plus style={styles.btnIcon} />
+          {/* Search Button */}
+          <button className="flex items-center gap-2 py-3 px-6 border-none rounded-lg text-sm font-semibold cursor-pointer transition duration-200 whitespace-nowrap bg-[#13274f] text-white hover:bg-opacity-90">
+            SEARCH
+          </button>
+          {/* Add New Button */}
+          <button
+            onClick={handleAddNew}
+            className="flex items-center gap-2 py-3 px-6 border-none rounded-lg text-sm font-semibold cursor-pointer transition duration-200 whitespace-nowrap bg-amber-400 text-black hover:bg-amber-500"
+          >
+            <Plus className="w-4 h-4" />
             ADD NEW
           </button>
         </div>
 
-        <div style={styles.locationsList}>
+        {/* Locations List */}
+        <div className="flex flex-col gap-4">
           {filteredLocations.map((location) => (
-            <div key={location.id} style={styles.locationCard}>
-              <div style={styles.locationContent}>
-                <h3 style={styles.locationName}>{location.name}</h3>
-                <div style={styles.locationAddress}>
-                  <MapPin style={styles.addressIcon} />
-                  <span style={styles.addressText}>Address: {location.address}</span>
+            <div
+              key={location.id}
+              className="bg-white rounded-xl shadow-sm p-6 transition duration-200 flex items-start justify-between border border-gray-200"
+            >
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">{location.name}</h3>
+                <div className="flex items-start gap-2 text-gray-600">
+                  <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <span className="text-sm leading-relaxed">Address: {location.address}</span>
                 </div>
                 {location.googleMapsUrl && (
-                  <div style={styles.googleMapsLink}>
+                  <div className="mt-3">
                     <a
                       href={location.googleMapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={styles.mapsLinkButton}
-                      onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = "#1e40af";
-                        e.target.style.transform = "translateY(-1px)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = "#2563eb";
-                        e.target.style.transform = "translateY(0)";
-                      }}
+                      className="inline-flex items-center gap-1.5 py-2 px-3 bg-blue-600 text-white no-underline rounded-md text-xs font-medium transition duration-200 ease-in-out hover:bg-blue-800 transform hover:-translate-y-px"
                     >
-                      <MapPin style={{ width: "14px", height: "14px" }} />
+                      <MapPin className="w-3.5 h-3.5" />
                       View on Google Maps
                     </a>
                   </div>
                 )}
               </div>
-              <div style={styles.locationActions}>
+              <div className="flex items-center gap-2 ml-4">
+                {/* Edit Button */}
                 <button
                   onClick={() => handleEdit(location)}
-                  style={styles.actionBtn}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = "#f3f4f6";
-                    e.target.style.color = "#13274f";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = "transparent";
-                    e.target.style.color = "#6b7280";
-                  }}
+                  className="flex items-center justify-center w-9 h-9 border-none rounded-md bg-transparent text-gray-500 cursor-pointer transition duration-200 hover:bg-gray-100 hover:text-[#13274f]"
                 >
-                  <Edit style={styles.actionIcon} />
+                  <Edit className="w-4 h-4" />
                 </button>
+                {/* Delete Button */}
                 <button
                   onClick={() => handleDelete(location.id)}
-                  style={styles.actionBtn}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = "#fef2f2";
-                    e.target.style.color = "#ef4444";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = "transparent";
-                    e.target.style.color = "#6b7280";
-                  }}
+                  className="flex items-center justify-center w-9 h-9 border-none rounded-md bg-transparent text-gray-500 cursor-pointer transition duration-200 hover:bg-red-50 hover:text-red-500"
                 >
-                  <Trash2 style={styles.actionIcon} />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -312,8 +300,8 @@ const Navigation = () => {
         </div>
 
         {!loading && filteredLocations.length === 0 && (
-          <div style={styles.noResults}>
-            <p style={styles.noResultsText}>
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-lg m-0">
               {searchTerm ? "No locations match your search criteria." : "No locations found."}
             </p>
           </div>
@@ -321,45 +309,50 @@ const Navigation = () => {
       </div>
 
       {/* Add Modal */}
-      {isAddModalOpen && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Add New Location</h2>
-              <button onClick={closeModal} style={styles.modalClose}>
-                <X style={{ width: "20px", height: "20px" }} />
+      {(isAddModalOpen || isEditModalOpen) && ( // Combined rendering logic for cleaner modal structure
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]" onClick={closeModal}>
+          <div className="bg-white rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 pb-0 border-b border-gray-200 mb-6">
+              <h2 className="text-xl font-semibold text-[#13274f] m-0">
+                {isAddModalOpen ? "Add New Location" : "Edit Location"}
+              </h2>
+              <button onClick={closeModal} className="bg-transparent border-none text-gray-500 cursor-pointer p-1 rounded-md transition duration-200 hover:text-gray-900">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSubmitAdd} style={styles.modalForm}>
-              <div style={styles.formGroup}>
-                <label htmlFor="name" style={styles.formLabel}>
+            <form onSubmit={isAddModalOpen ? handleSubmitAdd : handleSubmitEdit} className="px-6 pb-6">
+              {/* Location Name */}
+              <div className="mb-5">
+                <label htmlFor={isAddModalOpen ? "name" : "edit-name"} className="block text-sm font-medium text-gray-700 mb-1.5">
                   Location Name *
                 </label>
                 <input
-                  id="name"
+                  id={isAddModalOpen ? "name" : "edit-name"}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Enter location name"
                   required
-                  style={styles.formInput}
+                  className="w-full py-2.5 px-3 border border-gray-300 rounded-md text-sm outline-none transition duration-200 focus:border-blue-500 box-border"
                 />
               </div>
-              <div style={styles.formGroup}>
-                <label htmlFor="address" style={styles.formLabel}>
+              {/* Address */}
+              <div className="mb-5">
+                <label htmlFor={isAddModalOpen ? "address" : "edit-address"} className="block text-sm font-medium text-gray-700 mb-1.5">
                   Address *
                 </label>
                 <textarea
-                  id="address"
+                  id={isAddModalOpen ? "address" : "edit-address"}
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   placeholder="Enter full address"
                   required
-                  style={styles.formTextarea}
+                  className="w-full py-2.5 px-3 border border-gray-300 rounded-md text-sm outline-none transition duration-200 focus:border-blue-500 box-border resize-y min-h-[80px]"
                   rows={3}
                 />
               </div>
-              <div style={styles.formGroup}>
-                <label htmlFor="googleMapsUrl" style={styles.formLabel}>
+              {/* Google Maps Link */}
+              <div className="mb-5">
+                <label htmlFor="googleMapsUrl" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Google Maps Link (Optional)
                 </label>
                 <input
@@ -368,81 +361,28 @@ const Navigation = () => {
                   value={formData.googleMapsUrl}
                   onChange={(e) => setFormData({ ...formData, googleMapsUrl: e.target.value })}
                   placeholder="https://maps.google.com/..."
-                  style={styles.formInput}
+                  className="w-full py-2.5 px-3 border border-gray-300 rounded-md text-sm outline-none transition duration-200 focus:border-blue-500 box-border"
                 />
-                <p style={styles.fieldHint}>Paste the Google Maps link for this location</p>
+                <p className="text-xs text-gray-500 mt-1 italic">Paste the Google Maps link for this location</p>
               </div>
-              <div style={styles.modalActions}>
-                <button type="button" onClick={closeModal} style={{ ...styles.btn, ...styles.btnCancel }}>
-                  Cancel
-                </button>
-                <button type="submit" style={{ ...styles.btn, ...styles.btnSubmit }} disabled={loading}>
-                  {loading ? "Adding..." : "Add Location"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* Edit Modal */}
-      {isEditModalOpen && (
-        <div style={styles.modalOverlay} onClick={closeModal}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Edit Location</h2>
-              <button onClick={closeModal} style={styles.modalClose}>
-                <X style={{ width: "20px", height: "20px" }} />
-              </button>
-            </div>
-            <form onSubmit={handleSubmitEdit} style={styles.modalForm}>
-              <div style={styles.formGroup}>
-                <label htmlFor="edit-name" style={styles.formLabel}>
-                  Location Name *
-                </label>
-                <input
-                  id="edit-name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter location name"
-                  required
-                  style={styles.formInput}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label htmlFor="edit-address" style={styles.formLabel}>
-                  Address *
-                </label>
-                <textarea
-                  id="edit-address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Enter full address"
-                  required
-                  style={styles.formTextarea}
-                  rows={3}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label htmlFor="googleMapsUrl" style={styles.formLabel}>
-                  Google Maps Link (Optional)
-                </label>
-                <input
-                  id="googleMapsUrl"
-                  type="url"
-                  value={formData.googleMapsUrl}
-                  onChange={(e) => setFormData({ ...formData, googleMapsUrl: e.target.value })}
-                  placeholder="https://maps.google.com/..."
-                  style={styles.formInput}
-                />
-                <p style={styles.fieldHint}>Paste the Google Maps link for this location</p>
-              </div>
-              <div style={styles.modalActions}>
-                <button type="button" onClick={closeModal} style={{ ...styles.btn, ...styles.btnCancel }}>
+              {/* Modal Actions */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 mt-6">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="py-3 px-6 border border-gray-300 rounded-lg text-sm font-semibold cursor-pointer transition duration-200 bg-transparent text-gray-600 hover:bg-gray-50"
+                >
                   Cancel
                 </button>
-                <button type="submit" style={{ ...styles.btn, ...styles.btnSubmit }} disabled={loading}>
-                  {loading ? "Updating..." : "Update Location"}
+                <button
+                  type="submit"
+                  className="py-3 px-6 border-none rounded-lg text-sm font-semibold cursor-pointer transition duration-200 bg-[#13274f] text-white hover:bg-opacity-90 disabled:opacity-50"
+                  disabled={loading}
+                >
+                  {isAddModalOpen
+                    ? (loading ? "Adding..." : "Add Location")
+                    : (loading ? "Updating..." : "Update Location")}
                 </button>
               </div>
             </form>

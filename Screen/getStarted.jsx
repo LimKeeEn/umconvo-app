@@ -12,6 +12,7 @@ const GetStarted = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef(null);
   const navigation = useNavigation();
+  const autoScrollTimer = useRef(null);
 
   const { promptAsync, loading, error } = useGoogleSignIn(() => {
     navigation.replace('MainApp');
@@ -22,6 +23,20 @@ const GetStarted = () => {
     require('../assets/Started_2.png'),
     require('../assets/Started_3.png'),
   ];
+
+  React.useEffect(() => {
+    autoScrollTimer.current = setInterval(() => {
+      const nextIndex = (currentIndex + 1) % images.length;
+      setCurrentIndex(nextIndex);
+      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
+    }, 3000);
+
+    return () => {
+      if (autoScrollTimer.current) {
+        clearInterval(autoScrollTimer.current);
+      }
+    };
+  }, [currentIndex]);
 
   const renderImage = ({ item }) => (
     <View style={styles.imageContainer}>
@@ -102,10 +117,10 @@ const GetStarted = () => {
 
         <TouchableOpacity
           style={styles.loginButtonGuest}
-          onPress={() => navigation.replace('MainApp')}
+          onPress={() => navigation.replace('GuestMainApp')}
         >
           <MaterialIcons name="person" size={24} color="#000000" />
-          <Text style={styles.buttonText}>Sign in as Guest</Text>
+          <Text style={styles.buttonText}>Continue as Guest</Text>
         </TouchableOpacity>
 
         {error && (

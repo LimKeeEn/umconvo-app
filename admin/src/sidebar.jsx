@@ -17,7 +17,7 @@ const Sidebar = () => {
     { name: 'Important Dates', icon: <FaCalendarAlt />, path: '/important-dates' },
     { name: 'News', icon: <FaFileAlt />, path: '/news' },
     { name: 'Services', icon: <FaCamera />, path: '/services' },
-    { name: 'Navigation', icon: <FaCompass />, path: '/navigation' },
+    // { name: 'Navigation', icon: <FaCompass />, path: '/navigation' },
     { name: 'Help & Support', icon: <FaHeadset />, path: '/help-support' },
     { name: 'About Us', icon: <FaQuestionCircle />, path: '/about-us' },
   ];
