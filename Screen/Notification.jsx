@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuth } from "firebase/auth";
 
 // Configure how notifications are displayed when app is in foreground
 Notifications.setNotificationHandler({
@@ -63,11 +64,41 @@ const NotificationScreen = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [readNotifications, setReadNotifications] = useState(new Set());
-  const [selectedTab, setSelectedTab] = useState('all'); // 'all' or 'unread'
+  const [selectedTab, setSelectedTab] = useState('all');
+  const [userFaculty, setUserFaculty] = useState(null); // ✅ Store user's faculty
   const notificationListener = useRef();
   const responseListener = useRef();
 
   const projectID = "umconvo-app";
+
+  // ✅ Fetch current user's faculty from Firestore
+  useEffect(() => {
+    const fetchUserFaculty = async () => {
+      try {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+
+        if (currentUser?.email) {
+          const email = encodeURIComponent(currentUser.email);
+
+          const url = `https://firestore.googleapis.com/v1/projects/${projectID}/databases/(default)/documents/students/${email}`;
+
+          const response = await fetch(url);
+          const data = await response.json();
+
+          if (data.fields?.faculty?.stringValue) {
+            setUserFaculty(data.fields.faculty.stringValue);
+          } else {
+            console.log("Faculty not found in Firestore.");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user faculty:", error);
+      }
+    };
+
+    fetchUserFaculty();
+  }, []);
 
   // Load read notifications from AsyncStorage
   useEffect(() => {
@@ -127,6 +158,21 @@ const NotificationScreen = () => {
     };
   }, []);
 
+  // ✅ Filter notifications based on user's faculty
+  const filterNotificationsByFaculty = (notificationsList) => {
+    if (!userFaculty) {
+      // If user faculty is not loaded yet, show all for now
+      return notificationsList;
+    }
+
+    return notificationsList.filter((notification) => {
+      const targetFaculty = notification.targetFaculty;
+      
+      // Show if notification is for "all" or matches user's faculty
+      return targetFaculty === "all" || targetFaculty === userFaculty;
+    });
+  };
+
   const fetchNotifications = async () => {
     try {
       const response = await fetch(
@@ -145,9 +191,12 @@ const NotificationScreen = () => {
           createdAt: doc.fields.createdAt.integerValue,
           type: doc.fields.type?.stringValue || "custom",
           category: doc.fields.metadata?.mapValue?.fields?.category?.stringValue || "general",
+          targetFaculty: doc.fields.targetFaculty?.stringValue || "all", // ✅ Get target faculty
         }));
 
-        setNotifications(formatted);
+        // ✅ Filter notifications based on user's faculty
+        const filteredNotifications = filterNotificationsByFaculty(formatted);
+        setNotifications(filteredNotifications);
       }
     } catch (error) {
       console.log("Error loading notifications:", error);
@@ -157,12 +206,15 @@ const NotificationScreen = () => {
   };
 
   useEffect(() => {
-    fetchNotifications();
+    // Only fetch notifications after user faculty is loaded
+    if (userFaculty !== null) {
+      fetchNotifications();
 
-    // Poll for new notifications every 30 seconds (optional)
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
-  }, []);
+      // Poll for new notifications every 30 seconds
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userFaculty]);
 
   // Format timestamp → readable date
   const formatDate = (ms) => {

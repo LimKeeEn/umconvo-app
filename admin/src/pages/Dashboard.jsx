@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { Mail, Settings, Users, GraduationCap, Edit, Calendar, Clock, MapPin, X, Loader } from "lucide-react"
+import { useNavigate } from "react-router-dom" // ✅ Added useNavigate
 
 import { db } from "../firebaseConfig"
 import { doc, getDoc, setDoc, collection, getDocs, query } from "firebase/firestore"
@@ -204,6 +205,8 @@ const DialogFooter = ({ children }) => (
 
 // --- Dashboard Component ---
 const Dashboard = () => {
+  const navigate = useNavigate(); // ✅ Initialize navigate
+  
   const [targetDateMs, setTargetDateMs] = useState(null)
   const [showSetDateModal, setShowSetDateModal] = useState(false)
   const [dateInput, setDateInput] = useState("")
@@ -583,7 +586,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      <div className="p-4 sm:p-6 lg:p-8" id="dashboard-top">
+      <div className="p-10" id="dashboard-top">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#13274f]">Dashboard</h1>
           <div className="flex items-center gap-4">
@@ -720,8 +723,8 @@ const Dashboard = () => {
               <h2 className="text-xl font-semibold text-gray-800">Upcoming Deadlines</h2>
               <Edit 
                 className="w-5 h-5 text-gray-500 ml-auto cursor-pointer hover:text-[#13274f]" 
-                onClick={fetchUpcomingDeadlines}
-                title="Refresh Deadlines"
+                onClick={() => navigate('/important-dates')}
+                title="Edit Deadlines"
               />
             </div>
             <div className="flex flex-col gap-4">

@@ -7,6 +7,7 @@ import {
   FaHeadset,
   FaQuestionCircle,
   FaUser,
+  FaBell,
 } from 'react-icons/fa';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -21,6 +22,7 @@ const Sidebar = () => {
     // { name: 'Navigation', icon: <FaCompass />, path: '/navigation' },
     { name: 'Help & Support', icon: <FaHeadset />, path: '/help-support' },
     { name: 'About Us', icon: <FaQuestionCircle />, path: '/about-us' },
+    { name: 'Notification', icon: <FaBell />, path: '/admin-notification' },
   ];
 
   return (

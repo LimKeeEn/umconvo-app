@@ -320,7 +320,7 @@ const HelpSupport = () => {
         </div>
       )}
 
-      <div className="p-6">
+      <div className="p-10">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-4xl font-bold text-[#13274f] m-0">Help & Support</h1>
           <div className="flex items-center gap-4">
