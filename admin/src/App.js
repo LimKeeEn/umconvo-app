@@ -8,6 +8,7 @@ import Services from './pages/Services';
 import Navigation from './pages/Navigation';
 import HelpSupport from './pages/HelpSupport';
 import AboutUs from './pages/AboutUs';
+import AdminNotification from './pages/AdminNotification';
 import './App.css';
 import './index.css';
 
@@ -25,6 +26,7 @@ function App() {
           {/* <Route path="/navigation" element={<Navigation />} /> */}
           <Route path="/help-support" element={<HelpSupport />} />
           <Route path="/about-us" element={<AboutUs />} />
+          <Route path="/admin-notification" element={<AdminNotification />} />
         </Route>
       </Routes>
     </Router>

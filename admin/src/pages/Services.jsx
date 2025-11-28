@@ -15,6 +15,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { FaPlus, FaTrash, FaEdit } from "react-icons/fa";
+import { Mail, Settings} from "lucide-react"
 
 const AdminServices = () => {
   const [images, setImages] = useState([]);
@@ -79,12 +80,13 @@ const AdminServices = () => {
 
   return (
     <div className="p-10 bg-[#f7fafc] min-h-[95vh]">
-      <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5 bg-white">
-        <h1 className="text-4xl font-bold text-[#13274f] m-0">Services</h1>
-        <div className="flex gap-3">
-          {/* Add your top-right icons if needed */}
+      <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#13274f]">Services</h1>
+          <div className="flex items-center gap-4">
+            <Mail className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
+            <Settings className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
+          </div>
         </div>
-      </div>
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
         {images.map((image) => (

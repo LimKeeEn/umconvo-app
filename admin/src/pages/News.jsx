@@ -4,6 +4,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 import { collection, addDoc, onSnapshot, updateDoc, doc, deleteDoc } from "firebase/firestore"
 import { FaPlus, FaTrash, FaEdit, FaTimes } from "react-icons/fa"
 import { notifyNewsAdded, notifyNewsUpdated, notifyNewsDeleted } from "../services/notificationService"
+import { Mail, Settings} from "lucide-react"
 
 const AdminNews = () => {
   const [newsItems, setNewsItems] = useState([])
@@ -165,9 +166,13 @@ const AdminNews = () => {
 
   return (
     <div className="p-10 bg-[#f8f9fc] min-h-[95vh]">
-      <div className="flex justify-between items-center border-b border-gray-300 pb-4 mb-5 bg-white">
-        <h1 className="text-4xl font-bold text-[#13274f] m-0">News</h1>
-      </div>
+      <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#13274f]">News</h1>
+          <div className="flex items-center gap-4">
+            <Mail className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
+            <Settings className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
+          </div>
+        </div>
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-6">
         {newsItems.map((news) => (
