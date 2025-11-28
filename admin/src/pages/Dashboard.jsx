@@ -2,17 +2,17 @@ import { useState, useEffect } from "react"
 import { Mail, Settings, Users, GraduationCap, Edit, Calendar, Clock, MapPin, X, Loader } from "lucide-react"
 
 import { db } from "../firebaseConfig"
-import { doc, getDoc, setDoc, collection, getDocs, query } from "firebase/firestore" // Added collection, getDocs, query
+import { doc, getDoc, setDoc, collection, getDocs, query } from "firebase/firestore"
 
-// --- Helper Functions for Sorting and Status (Copied from ImportantDates logic) ---
+// --- Helper Functions for Sorting and Status ---
 
 const getStatusColorAndPriority = (dateString, timeString) => {
   const now = new Date();
   const startDate = new Date(dateString);
   startDate.setHours(0, 0, 0, 0);
 
-  let color = "#4CAF50"; // Default: Green/Past
-  let priority = 3; // Default: Lowest priority
+  let color = "#4CAF50";
+  let priority = 3;
 
   let endTime = null;
   if (timeString) {
@@ -26,47 +26,45 @@ const getStatusColorAndPriority = (dateString, timeString) => {
     }
   }
 
-  // Logic to determine status
   if (endTime) {
     if (now >= startDate && now <= endTime) {
-      color = "#F44336"; // Red: Ongoing (Current)
+      color = "#F44336";
       priority = 1;
     } else if (now < startDate) {
       const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
       if (diffDays <= 7) {
-        color = "#F44336"; // Red: Urgent (Within 7 days)
+        color = "#F44336";
         priority = 1;
       } else {
-        color = "#FFC107"; // Yellow: Upcoming
+        color = "#FFC107";
         priority = 2;
       }
     } else {
-      color = "#4CAF50"; // Green: Past/Completed
+      color = "#4CAF50";
       priority = 3;
     }
   } else {
-    // Single date logic
     const diffDays = Math.ceil((startDate - now) / (1000 * 60 * 60 * 24));
     
     if (diffDays < 0) {
-      color = "#4CAF50"; // Green: Past/Completed
+      color = "#4CAF50";
       priority = 3;
     } else if (diffDays === 0) {
-      color = "#F44336"; // Red: Today/Urgent
+      color = "#F44336";
       priority = 1;
     } else {
       if (diffDays <= 7) {
-        color = "#F44336"; // Red: Urgent (Within 7 days)
+        color = "#F44336";
         priority = 1;
       } else {
-        color = "#FFC107"; // Yellow: Upcoming
+        color = "#FFC107";
         priority = 2;
       }
     }
   }
 
   return { 
-    color: color === "#F44336" ? "red" : color === "#FFC107" ? "yellow" : "green", // Map hex to readable string
+    color: color === "#F44336" ? "red" : color === "#FFC107" ? "yellow" : "green",
     priority 
   };
 }
@@ -96,12 +94,10 @@ const sortDates = (a, b) => {
     const aStatus = getStatusColorAndPriority(a.date, a.time);
     const bStatus = getStatusColorAndPriority(b.date, b.time);
 
-    // 1. Sort by Priority (Red:1, Yellow:2, Green:3) - Ascending (Urgent first)
     if (aStatus.priority !== bStatus.priority) {
         return aStatus.priority - bStatus.priority;
     }
 
-    // 2. If priorities are the same, sort by Date - Ascending (Older date first)
     const aDate = getSortableDate(a.date, a.time);
     const bDate = getSortableDate(b.date, b.time);
 
@@ -123,7 +119,7 @@ const formatDateDisplay = (date, time) => {
   return formatted
 }
 
-// --- Reusable UI Components (unmodified) ---
+// --- Reusable UI Components ---
 
 const Button = ({ children, variant = "default", size = "default", onClick, disabled = false, className = "", ...props }) => {
   let baseClasses =
@@ -215,9 +211,18 @@ const Dashboard = () => {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   
-  // New state for dynamic deadlines
   const [upcomingDeadlines, setUpcomingDeadlines] = useState([]);
   const [isDeadlinesLoading, setIsDeadlinesLoading] = useState(true);
+
+  // ✅ NEW: State for dynamic statistics
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    attendingUsers: 0,
+    rehearsalAttending: 0,
+    gownReturned: 0,
+    gownCollected: 0,
+  });
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
 
   const [countdown, setCountdown] = useState({
     daysTens: 0,
@@ -231,9 +236,61 @@ const Dashboard = () => {
   })
 
   const COUNTDOWN_DOC_REF = doc(db, "settings", "countdown")
-  const DEADLINE_COLLECTION_REF = collection(db, "importantDates"); // Reference to "importantDates"
+  const DEADLINE_COLLECTION_REF = collection(db, "importantDates");
+  const STUDENTS_COLLECTION_REF = collection(db, "students"); // ✅ Reference to students
 
-  // Function to fetch and process deadlines
+  // ✅ NEW: Fetch statistics from Firebase
+  const fetchStatistics = async () => {
+    setIsStatsLoading(true);
+    try {
+      const querySnapshot = await getDocs(STUDENTS_COLLECTION_REF);
+      
+      let totalUsers = 0;
+      let attendingUsers = 0;
+      let rehearsalAttending = 0;
+      let gownReturned = 0;
+      let gownCollected = 0;
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        totalUsers++;
+
+        // Count attending users
+        if (data.attendanceStatus === "attending") {
+          attendingUsers++;
+        }
+
+        // Count rehearsal attendance
+        if (data.rehearsalAttendanceStatus === "attend") {
+          rehearsalAttending++;
+        }
+
+        // Count gown collected
+        if (data.attireOption === "collect") {
+          gownCollected++;
+        }
+
+        // Count gown returned
+        if (data.returnAttireStatus === "returned") {
+          gownReturned++;
+        }
+      });
+
+      setStats({
+        totalUsers,
+        attendingUsers,
+        rehearsalAttending,
+        gownReturned,
+        gownCollected,
+      });
+
+    } catch (error) {
+      console.error("Error fetching statistics:", error);
+    } finally {
+      setIsStatsLoading(false);
+    }
+  };
+
   const fetchUpcomingDeadlines = async () => {
       setIsDeadlinesLoading(true);
       try {
@@ -242,8 +299,8 @@ const Dashboard = () => {
           const rawDates = querySnapshot.docs.map(doc => ({
               id: doc.id,
               title: doc.data().title || "Untitled Event",
-              date: doc.data().date || "", // This is the start date
-              time: doc.data().time || "", // This is the end date/range
+              date: doc.data().date || "",
+              time: doc.data().time || "",
               location: doc.data().location || "N/A",
           }));
 
@@ -254,13 +311,11 @@ const Dashboard = () => {
                       ...dateItem,
                       color,
                       priority,
-                      displayDate: formatDateDisplay(dateItem.date, dateItem.time), // Use existing formatter
+                      displayDate: formatDateDisplay(dateItem.date, dateItem.time),
                   };
               })
-              // Filter: Only include Red (Urgent) or Yellow (Upcoming) events
               .filter(item => item.color === "red" || item.color === "yellow");
               
-          // Sort: Red first, then Yellow, then by date (using the sortDates helper)
           filteredAndProcessedDeadlines.sort(sortDates); 
 
           setUpcomingDeadlines(filteredAndProcessedDeadlines);
@@ -295,12 +350,18 @@ const Dashboard = () => {
       console.error("Error fetching countdown target date:", error)
     } finally {
       setIsLoading(false)
+      // ✅ Scroll to top after loading completes
+      setTimeout(() => window.scrollTo(0, 0), 0)
     }
   }
 
   useEffect(() => {
+    // ✅ Scroll to top immediately on mount
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    
     fetchTargetDate();
-    fetchUpcomingDeadlines(); // Fetch deadlines on mount
+    fetchUpcomingDeadlines();
+    fetchStatistics();
   }, [])
 
   const splitNumber = (number) => ({
@@ -363,13 +424,11 @@ const Dashboard = () => {
     if (!window.confirm("Are you sure you want to clear the countdown?")) return
     setIsSaving(true)
     try {
-      // Clear Firestore document
       await setDoc(COUNTDOWN_DOC_REF, {
         targetDateMs: null,
         targetDateTime: null,
       })
 
-      // Reset states
       setTargetDateMs(null)
       setCountdown({
         daysTens: 0,
@@ -390,15 +449,37 @@ const Dashboard = () => {
     }
   }
 
-
-  const stats = [
-    { title: "User Register", current: 1256, total: 1430, icon: Users, color: "violet" },
-    { title: "Ceremony Attendance", current: 1250, total: 6, icon: GraduationCap, color: "blue" },
-    { title: "Gown Confirmation", current: 1256, total: 0, icon: GraduationCap, color: "gray" },
-    { title: "Rehearsal Attendance", current: 365, total: 891, icon: Users, color: "gray" },
+  // ✅ Dynamic stats array based on Firebase data
+  const statsDisplay = [
+    { 
+      title: "User Register", 
+      current: stats.totalUsers, 
+      total: stats.totalUsers, 
+      icon: Users, 
+      color: "violet" 
+    },
+    { 
+      title: "Ceremony Attendance", 
+      current: stats.attendingUsers, 
+      total: stats.totalUsers, 
+      icon: GraduationCap, 
+      color: "blue" 
+    },
+    { 
+      title: "Rehearsal Attendance", 
+      current: stats.rehearsalAttending, 
+      total: stats.totalUsers, 
+      icon: Users, 
+      color: "yellow" 
+    },
+    { 
+      title: "Gown Return", 
+      current: stats.gownReturned, 
+      total: stats.gownCollected, 
+      icon: GraduationCap, 
+      color: "gray" 
+    },
   ]
-
-  // Removed hardcoded upcomingDeadlines array
 
   const getColorClasses = (color) => {
     switch (color) {
@@ -407,7 +488,6 @@ const Dashboard = () => {
       case "blue":
         return { bg: "bg-blue-100", text: "text-blue-600", border: "border-blue-500" }
       case "red":
-        // Using red-600 for border to match your current design logic
         return { bg: "bg-red-100", text: "text-red-600", border: "border-red-600" } 
       case "yellow":
         return { bg: "bg-yellow-100", text: "text-yellow-600", border: "border-yellow-600" }
@@ -416,15 +496,65 @@ const Dashboard = () => {
     }
   }
 
-  const chartData = [
-    { value: 45, color: "bg-gray-400" },
-    { value: 75, color: "bg-[#13274f]" },
-    { value: 60, color: "bg-gray-400" },
-    { value: 55, color: "bg-[#13274f]" },
-    { value: 70, color: "bg-gray-400" },
-    { value: 65, color: "bg-[#13274f]" },
-    { value: 80, color: "bg-gray-400" },
-  ]
+  // ✅ Calculate dynamic chart data based on statistics
+  const getChartData = () => {
+    if (stats.totalUsers === 0) {
+      return [
+        { value: 0, color: "bg-gray-400", label: "Total Users" },
+        { value: 0, color: "bg-violet-500", label: "Attending" },
+        { value: 0, color: "bg-blue-500", label: "Not Attending" },
+        { value: 0, color: "bg-yellow-500", label: "Rehearsal" },
+        { value: 0, color: "bg-green-500", label: "Collected" },
+        { value: 0, color: "bg-[#13274f]", label: "Returned" },
+      ];
+    }
+
+    const attendingPercent = Math.round((stats.attendingUsers / stats.totalUsers) * 100);
+    const notAttendingPercent = Math.round(((stats.totalUsers - stats.attendingUsers) / stats.totalUsers) * 100);
+    const rehearsalPercent = stats.totalUsers > 0 ? Math.round((stats.rehearsalAttending / stats.totalUsers) * 100) : 0;
+    const collectedPercent = stats.totalUsers > 0 ? Math.round((stats.gownCollected / stats.totalUsers) * 100) : 0;
+    const returnedPercent = stats.gownCollected > 0 ? Math.round((stats.gownReturned / stats.gownCollected) * 100) : 0;
+
+    return [
+      { 
+        value: attendingPercent, 
+        color: "bg-violet-500", 
+        label: "Ceremony Attending",
+        count: stats.attendingUsers,
+        total: stats.totalUsers
+      },
+      { 
+        value: notAttendingPercent, 
+        color: "bg-gray-400", 
+        label: "Not Attending",
+        count: stats.totalUsers - stats.attendingUsers,
+        total: stats.totalUsers
+      },
+      { 
+        value: rehearsalPercent, 
+        color: "bg-yellow-500", 
+        label: "Rehearsal Attending",
+        count: stats.rehearsalAttending,
+        total: stats.totalUsers
+      },
+      { 
+        value: collectedPercent, 
+        color: "bg-blue-500", 
+        label: "Gown Collected",
+        count: stats.gownCollected,
+        total: stats.totalUsers
+      },
+      { 
+        value: returnedPercent, 
+        color: "bg-[#13274f]", 
+        label: "Gown Returned",
+        count: stats.gownReturned,
+        total: stats.gownCollected || stats.totalUsers
+      },
+    ];
+  };
+
+  const chartData = getChartData();
 
   const Digit = ({ value }) => (
     <div className="w-12 sm:w-14 h-16 sm:h-20 flex items-center justify-center bg-gray-800 text-white rounded-lg text-xl sm:text-2xl font-bold shadow-md">
@@ -443,8 +573,8 @@ const Dashboard = () => {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {(isLoading || isDeadlinesLoading) && (
+    <div className="min-h-screen bg-gray-50" style={{ overflowX: 'hidden' }}>
+      {(isLoading || isDeadlinesLoading || isStatsLoading) && (
         <div className="fixed inset-0 bg-white/80 flex items-center justify-center z-[2000]">
           <div className="flex flex-col items-center justify-center p-10">
             <Loader className="w-8 h-8 text-gray-500 animate-spin" />
@@ -453,7 +583,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="p-4 sm:p-6 lg:p-8" id="dashboard-top">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#13274f]">Dashboard</h1>
           <div className="flex items-center gap-4">
@@ -462,9 +592,9 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats - Now Dynamic */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {stats.map((stat, i) => {
+          {statsDisplay.map((stat, i) => {
             const { bg, text } = getColorClasses(stat.color)
             return (
               <div
@@ -514,25 +644,80 @@ const Dashboard = () => {
 
             {/* Chart */}
             <div className="bg-white rounded-xl shadow p-6 border border-gray-100">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">Statistics</h2>
-              <div className="flex items-end gap-3 sm:gap-4 h-64 border-b border-l border-gray-300 pl-2 pb-2">
-                {chartData.map((bar, i) => (
-                  <div
-                    key={i}
-                    className={`flex-1 rounded-t-md shadow-md transition-all duration-500 hover:scale-105 ${bar.color}`}
-                    style={{ height: `${bar.value}%` }}
-                    title={`Metric ${i + 1}: ${bar.value}%`}
-                  ></div>
-                ))}
+              <h2 className="text-xl font-semibold text-gray-800 mb-6">Statistics Overview</h2>
+              <div className="space-y-6">
+                {/* Bar Chart */}
+                <div className="flex items-end justify-around gap-2 sm:gap-3 h-64 border-b border-l border-gray-300 pl-2 pb-2 relative">
+                  {/* Y-axis labels */}
+                  <div className="absolute left-0 top-0 bottom-8 flex flex-col justify-between text-xs text-gray-500 pr-2">
+                    <span>100%</span>
+                    <span>75%</span>
+                    <span>50%</span>
+                    <span>25%</span>
+                    <span>0%</span>
+                  </div>
+                  
+                  {/* Bars */}
+                  <div className="flex items-end justify-around gap-2 sm:gap-3 h-full w-full ml-6">
+                    {chartData.map((bar, i) => (
+                      <div key={i} className="flex flex-col items-center flex-1 h-full justify-end group relative">
+                        <div
+                          className={`w-full rounded-t-md shadow-md transition-all duration-500 hover:scale-105 ${bar.color} relative`}
+                          style={{ height: `${bar.value}%`, minHeight: bar.value > 0 ? '8px' : '0' }}
+                        >
+                          {/* Tooltip on hover */}
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                            <div className="bg-gray-800 text-white text-xs rounded py-2 px-3 whitespace-nowrap shadow-lg">
+                              <div className="font-semibold">{bar.label}</div>
+                              <div>{bar.count} / {bar.total}</div>
+                              <div className="font-bold">{bar.value}%</div>
+                            </div>
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                              <div className="border-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                          </div>
+                          
+                          {/* Percentage label inside bar */}
+                          {bar.value > 15 && (
+                            <div className="absolute top-2 left-1/2 transform -translate-x-1/2 text-white text-xs font-bold">
+                              {bar.value}%
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Label below bar */}
+                        <div className="mt-2 text-xs text-gray-600 text-center font-medium max-w-full overflow-hidden">
+                          <div className="truncate" title={bar.label}>
+                            {bar.label.split(' ').map((word, idx) => (
+                              <div key={idx} className="leading-tight">{word}</div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Legend */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4 border-t border-gray-200">
+                  {chartData.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded ${item.color}`}></div>
+                      <div className="text-xs text-gray-600">
+                        <div className="font-medium">{item.label}</div>
+                        <div className="text-gray-500">{item.count} / {item.total} ({item.value}%)</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Upcoming Deadlines (Dynamically Populated) */}
+          {/* Upcoming Deadlines */}
           <div className="bg-white rounded-xl shadow p-6 border border-gray-100">
             <div className="flex items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-800">Upcoming Deadlines</h2>
-              {/* Added logic to re-fetch/refresh deadlines on edit click */}
               <Edit 
                 className="w-5 h-5 text-gray-500 ml-auto cursor-pointer hover:text-[#13274f]" 
                 onClick={fetchUpcomingDeadlines}
@@ -547,7 +732,7 @@ const Dashboard = () => {
                 </div>
               ) : upcomingDeadlines.length > 0 ? (
                 upcomingDeadlines.map((deadline) => {
-                  const { border } = getColorClasses(deadline.color) // Uses dynamic color: red or yellow
+                  const { border } = getColorClasses(deadline.color)
                   return (
                     <div
                       key={deadline.id}
@@ -557,12 +742,7 @@ const Dashboard = () => {
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                         <Calendar className="w-3 h-3" /> <span>{deadline.displayDate}</span>
                       </div>
-                      {/* You don't have a separate time field in the 'importantDates' data, 
-                          but you have it in the display, so I'll render the timeSlot 
-                          if you plan to use it from the location/description. 
-                          Using location as the secondary detail for simplicity.
-                      */}
-                      {deadline.time && ( // Renders time if available (based on data structure in previous component)
+                      {deadline.time && (
                         <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                           <Clock className="w-3 h-3" /> <span>{deadline.time}</span>
                         </div>
@@ -584,7 +764,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Modal (Unmodified) */}
+      {/* Modal */}
       <Dialog open={showSetDateModal} onClose={() => setShowSetDateModal(false)}>
         <DialogHeader onClose={() => setShowSetDateModal(false)}>Set Countdown Target</DialogHeader>
 
