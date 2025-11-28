@@ -23,7 +23,7 @@ const initialTasks = [
   { title: `Attendance & Academic Attire \n Confirmation`, id: 'attire-confirmation' },
   { title: 'Collection of Academic Attire', id: 'attire-collection' },
   { title: 'Attendance of Rehearsal Confirmation', id: 'rehearsal-confirmation' },
-  { title: 'Return of Academic Attire', id: 'attire-return' }, // ✅ NEW TASK
+  { title: 'Return of Academic Attire', id: 'attire-return' },
 ];
 
 const Confirmation = () => {
@@ -31,12 +31,11 @@ const Confirmation = () => {
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation();
   const [email, setEmail] = useState(null);
-  const [token, setToken] = useState(null); // ✅ Firebase ID Token
+  const [token, setToken] = useState(null);
   const route = useRoute();
   const [studentDetails, setStudentDetails] = useState(null);
-  const [attireSchedule, setAttireSchedule] = useState(null); // ✅ Store attire schedule from Firebase
+  const [attireSchedule, setAttireSchedule] = useState(null);
   
-  // ✅ State for Collection Modal
   const [showCollectionModal, setShowCollectionModal] = useState(false);
 
   // ✅ Fetch Auth Token on Mount
@@ -94,7 +93,6 @@ const Confirmation = () => {
 
     const fetchData = async () => {
       try {
-        // Fetch student details and tasks
         const response = await fetch(`${API_URL}/get-student-details/${email}`);
         const result = await response.json();
 
@@ -110,7 +108,6 @@ const Confirmation = () => {
           );
         }
 
-        // Fetch attire schedule from Firebase
         await fetchAttireScheduleData(token);
       } catch (error) {
         console.error('Error fetching tasks/details:', error);
@@ -138,6 +135,36 @@ const Confirmation = () => {
     }
   };
 
+  // ✅ Update Rehearsal Status in Firebase
+  const updateRehearsalStatus = async (status) => {
+    try {
+      const response = await fetch(`${API_URL}/update-rehearsal-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, rehearsalAttendanceStatus: status }),
+      });
+      const result = await response.json();
+      if (!result.success) console.warn('⚠️ Rehearsal status update failed:', result.message);
+    } catch (error) {
+      console.error('Error updating rehearsal status:', error);
+    }
+  };
+
+  // ✅ Update Return Attire Status in Firebase
+  const updateReturnAttireStatus = async (status) => {
+    try {
+      const response = await fetch(`${API_URL}/update-return-attire-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, returnAttireStatus: status }),
+      });
+      const result = await response.json();
+      if (!result.success) console.warn('⚠️ Return attire status update failed:', result.message);
+    } catch (error) {
+      console.error('Error updating return attire status:', error);
+    }
+  };
+
   // ✅ Handle Collection Confirmation
   const handleCollectionConfirmation = () => {
     setShowCollectionModal(false);
@@ -149,6 +176,61 @@ const Confirmation = () => {
     updateTaskStatus('attire-collection', 'completed');
   };
 
+  // ✅ Handle Rehearsal Confirmation
+  const handleRehearsalConfirmation = () => {
+    const currentIndex = tasks.findIndex(t => t.id === 'rehearsal-confirmation');
+    const previousIncomplete = tasks.slice(0, currentIndex).some(t => t.status !== 'completed');
+    
+    if (previousIncomplete) {
+      Alert.alert('Please complete previous steps first.');
+      return;
+    }
+
+    Alert.alert(
+      'Rehearsal Attendance',
+      'Will you attend the rehearsal?',
+      [
+        {
+          text: 'Not Attending',
+          onPress: async () => {
+            setTasks(prev =>
+              prev.map(t =>
+                t.id === 'rehearsal-confirmation' ? { ...t, status: 'completed' } : t
+              )
+            );
+            await updateTaskStatus('rehearsal-confirmation', 'completed');
+            await updateRehearsalStatus('not-attend');
+            
+            // Update local state
+            setStudentDetails(prev => ({
+              ...prev,
+              rehearsalAttendanceStatus: 'not-attend'
+            }));
+          },
+        },
+        {
+          text: 'Attending',
+          onPress: async () => {
+            setTasks(prev =>
+              prev.map(t =>
+                t.id === 'rehearsal-confirmation' ? { ...t, status: 'completed' } : t
+              )
+            );
+            await updateTaskStatus('rehearsal-confirmation', 'completed');
+            await updateRehearsalStatus('attend');
+            
+            // Update local state
+            setStudentDetails(prev => ({
+              ...prev,
+              rehearsalAttendanceStatus: 'attend'
+            }));
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   // ✅ Handle Return Confirmation
   const handleReturnConfirmation = () => {
     const currentIndex = tasks.findIndex(t => t.id === 'attire-return');
@@ -156,6 +238,12 @@ const Confirmation = () => {
     
     if (previousIncomplete) {
       Alert.alert('Please complete previous steps first.');
+      return;
+    }
+
+    // Check if student collected attire
+    if (studentDetails?.attireOption !== 'collect') {
+      Alert.alert('Not Applicable', 'This step is only for students who collected academic attire.');
       return;
     }
 
@@ -173,6 +261,13 @@ const Confirmation = () => {
               )
             );
             await updateTaskStatus('attire-return', 'completed');
+            await updateReturnAttireStatus('returned');
+            
+            // Update local state
+            setStudentDetails(prev => ({
+              ...prev,
+              returnAttireStatus: 'returned'
+            }));
           },
         },
       ],
@@ -184,14 +279,12 @@ const Confirmation = () => {
   const handleTaskConfirmation = (task) => {
     const currentIndex = tasks.findIndex(t => t.id === task.id);
 
-    // Prevent skipping previous steps
     const previousIncomplete = tasks.slice(0, currentIndex).some(t => t.status !== 'completed');
     if (previousIncomplete) {
       Alert.alert('Please complete previous steps first.');
       return;
     }
 
-    // Special logic for Update Profile
     if (task.id === 'update-profile') {
       Alert.alert(
         'Update Profile',
@@ -219,7 +312,6 @@ const Confirmation = () => {
       );
     }
 
-    // Special logic for Graduate Tracer Study (SKPG)
     else if (task.id === 'graduate-tracer') {
       Alert.alert(
         'Graduate Tracer Study',
@@ -254,9 +346,7 @@ const Confirmation = () => {
       });
     }
 
-    // ✅ NEW: Show Collection Modal
     else if (task.id === 'attire-collection') {
-      // Check if student is attending
       if (studentDetails?.attendanceStatus !== 'attending') {
         Alert.alert('Not Applicable', 'This step is only for students attending the ceremony.');
         return;
@@ -264,12 +354,16 @@ const Confirmation = () => {
       setShowCollectionModal(true);
     }
 
-    // ✅ NEW: Handle Return Attire
+    // ✅ NEW: Handle Rehearsal Confirmation
+    else if (task.id === 'rehearsal-confirmation') {
+      handleRehearsalConfirmation();
+    }
+
+    // ✅ Handle Return Attire
     else if (task.id === 'attire-return') {
       handleReturnConfirmation();
     }
 
-    // Default confirmation for other tasks
     else {
       Alert.alert(
         'Confirm Task',
@@ -293,7 +387,6 @@ const Confirmation = () => {
     }
   };
 
-  // ✅ Automatically show success when 100% done
   useEffect(() => {
     const allDone = tasks.every(t => t.status === 'completed');
     if (!loading && allDone) {
@@ -301,11 +394,9 @@ const Confirmation = () => {
     }
   }, [tasks, loading]);
 
-  // UI helpers
   const getTaskIcon = (status) => (status === 'completed' ? 'checkmark-circle' : 'checkmark-circle-outline');
   const getTaskColor = (status) => (status === 'completed' ? '#28a745' : '#192F59');
 
-  // Progress
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
   const progress = completedTasks / tasks.length;
   const progressPercent = Math.round(progress * 100);
@@ -321,13 +412,13 @@ const Confirmation = () => {
     );
   }
 
-  // Display the confirmed attendance/attire details
+  // Display confirmed details
   const renderConfirmationDetails = () => {
     if (tasks.find(t => t.id === 'attire-confirmation')?.status !== 'completed' || !studentDetails) {
       return null;
     }
 
-    const { attendanceStatus, attireOption, nonAttendanceReason, attireSize } = studentDetails;
+    const { attendanceStatus, attireOption, nonAttendanceReason, attireSize, rehearsalAttendanceStatus, returnAttireStatus } = studentDetails;
     
     let statusText = 'Unknown';
     let detailText = '';
@@ -353,6 +444,24 @@ const Confirmation = () => {
           </Text>
         </Text>
         <Text style={styles.detailsRow}>{detailText}</Text>
+        
+        {/* Show rehearsal status if confirmed */}
+        {rehearsalAttendanceStatus && (
+          <Text style={styles.detailsRow}>
+            **Rehearsal:** <Text style={{ color: rehearsalAttendanceStatus === 'attend' ? '#28a745' : '#dc3545', fontWeight: 'bold' }}>
+              {rehearsalAttendanceStatus === 'attend' ? 'Attending' : 'Not Attending'}
+            </Text>
+          </Text>
+        )}
+        
+        {/* Show return status if returned */}
+        {returnAttireStatus === 'returned' && (
+          <Text style={styles.detailsRow}>
+            **Attire Return:** <Text style={{ color: '#28a745', fontWeight: 'bold' }}>
+              Returned
+            </Text>
+          </Text>
+        )}
       </View>
     );
   };
@@ -361,7 +470,6 @@ const Confirmation = () => {
     <View style={{ flex: 1 }}>
       <Header title="Confirmation" />
       <ScrollView style={[styles.container, { marginTop: 150 }]} contentContainerStyle={{ paddingBottom: 100 }}>
-        {/* Progress */}
         <View style={styles.progressSection}>
           <Text style={styles.progressText}>{progressPercent}%</Text>
           <Text style={styles.pendingText}>{pendingText}</Text>
@@ -371,7 +479,6 @@ const Confirmation = () => {
           </View>
         </View>
 
-        {/* Task List */}
         {tasks.map((task, index) => (
           <View key={task.id}>
             <TouchableOpacity
@@ -397,13 +504,12 @@ const Confirmation = () => {
               <Feather name="chevron-right" size={20} color="#999" />
             </TouchableOpacity>
 
-            {/* Insert detail card after Attire Confirmation */}
             {task.id === 'attire-confirmation' && renderConfirmationDetails()}
           </View>
         ))}
       </ScrollView>
 
-      {/* ✅ Collection Modal */}
+      {/* Collection Modal */}
       <Modal
         visible={showCollectionModal}
         transparent={true}
@@ -467,7 +573,6 @@ const Confirmation = () => {
   );
 };
 
-// ✅ Modal Styles
 const modalStyles = {
   backdrop: {
     flex: 1,

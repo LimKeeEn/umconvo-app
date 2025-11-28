@@ -6,6 +6,7 @@ import {
   FaCompass,
   FaHeadset,
   FaQuestionCircle,
+  FaUser,
 } from 'react-icons/fa';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -26,18 +27,22 @@ const Sidebar = () => {
     <div className="w-[250px] h-screen bg-[#13274F] text-white flex flex-col items-center py-6 fixed left-0 top-0">
       {/* Profile Section */}
       <div className="flex flex-col items-center mb-6">
-        <div className="w-16 h-16 rounded-full bg-gray-300 mb-2" />
+        <img
+          src="https://img.icons8.com/color/96/user-male-circle--v1.png"
+          alt="Profile"
+          className="w-20 h-20 rounded-full object-cover mb-2"
+        />
         <h1 className="text-base font-semibold">UMConvo Admin</h1>
       </div>
 
       {/* Search */}
-      <div className="w-[85%] mb-6">
+      {/* <div className="w-[85%] mb-6">
         <input
           type="text"
           placeholder="Search"
           className="w-full px-4 py-2 text-sm rounded-full bg-[#E5E5E5] text-black placeholder-gray-500 focus:outline-none"
         />
-      </div>
+      </div> */}
 
       {/* Menu Items */}
       <nav className="w-full px-4 flex flex-col gap-2">
