@@ -1,4 +1,4 @@
-package com.UMConvoApp
+package com.umconvoapp
 
 import android.os.Build
 import android.os.Bundle

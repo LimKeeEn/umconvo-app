@@ -16,7 +16,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
 
-const API_URL = 'http://192.168.0.162:5000/api';
+const API_URL = 'http://192.168.1.234:5000/api';
 
 // Logout Confirmation Modal Component
 const LogoutConfirmationModal = ({ isVisible, onClose, onConfirm }) => {
