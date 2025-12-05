@@ -29,8 +29,7 @@ const saveAttendance = require('./routes/Confirmation/SaveAttendance')(db, admin
 const registerGetStudentDetailsRoute = require('./routes/Confirmation/StudentDetails')(db, admin);
 const getConvocation = require('./routes/Timetable/get-convocation');
 const getAttire = require('./routes/Timetable/get-attire');
-
-
+const tracerProof = require('./routes/Upload/tracer-proof')(db, admin);
 
 // Use routes
 app.use("/api", userVerifyRoutes);
@@ -43,6 +42,7 @@ app.use('/api', saveAttendance);
 app.use('/api', registerGetStudentDetailsRoute);
 app.use('/api', getConvocation);
 app.use('/api', getAttire);
+app.use('/api', tracerProof);
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {

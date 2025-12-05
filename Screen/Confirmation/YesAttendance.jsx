@@ -7,17 +7,19 @@ import {
     ScrollView,
     TouchableOpacity,
     Alert,
-    TextInput,
     Linking,
+    StyleSheet
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-// Assuming your Header and styles are accessible
-import Header from '../../NavigationBar/Header.jsx'; 
+
+// Header Component
+import Header from '../../NavigationBar/Header.jsx';
 
 // --- CONSTANTS ---
 const PURCHASE_FORM_LINK = 'https://forms.gle/your-academic-attire-purchase-form';
-const API_URL = 'http://192.168.0.162:5000/api';
+const REPRESENTATIVE_PDF_LINK = 'https://umconvo.um.edu.my/CONVO%202025/PPOG/DOKUMEN%20-%20IMPORTANT%20DATES/BORANG%20WAKIL%20AMBIL%20JUBAH.docx.pdf';
+const API_URL = 'http://192.168.1.234:5000/api';
 
 const sizeOptions = [
     { label: 'S (Small)', value: 'S' },
@@ -28,116 +30,97 @@ const sizeOptions = [
 
 const YesAttendance = ({ route }) => {
     const navigation = useNavigation();
-    const { email, updateTaskStatus } = route.params;
+    const { email } = route.params;
 
-    // Main choice: 'collect' or 'purchase'
-    const [attireOption, setAttireOption] = useState(null); 
-
-    // Collection States (if attireOption is 'collect')
+    const [attireOption, setAttireOption] = useState(null);
     const [selectedSize, setSelectedSize] = useState(null);
-    const [hasRepresentative, setHasRepresentative] = useState(null); // 'yes' or 'no'
-    const [representativeName, setRepresentativeName] = useState('');
-    const [representativeID, setRepresentativeID] = useState('');
+    const [hasRepresentative, setHasRepresentative] = useState(null);
 
-    // --- UI HELPERS ---
-
+    // --- UI COMPONENTS ---
     const RadioButton = ({ label, value, selectedValue, onSelect }) => (
-        <TouchableOpacity 
-            style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}
+        <TouchableOpacity
+            style={styles.radioRow}
             onPress={() => onSelect(value)}
         >
-            <Ionicons 
-                name={selectedValue === value ? 'radio-button-on' : 'radio-button-off'} 
-                size={24} 
-                color="#192F59" 
-                style={{ marginRight: 10 }}
+            <Ionicons
+                name={selectedValue === value ? 'radio-button-on' : 'radio-button-off'}
+                size={24}
+                color="#192F59"
+                style={styles.radioIcon}
             />
-            <Text style={{ fontSize: 16 }}>{label}</Text>
+            <Text style={styles.radioLabel}>{label}</Text>
         </TouchableOpacity>
     );
 
-    const AttireCard = ({ children, title }) => (
-        <View style={{ backgroundColor: 'white', padding: 15, borderRadius: 8, marginTop: 15, borderWidth: 1, borderColor: '#ccc' }}>
-            <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 10, color: '#192F59' }}>{title}</Text>
+    const AttireCard = ({ title, children }) => (
+        <View style={styles.card}>
+            <Text style={styles.cardTitle}>{title}</Text>
             {children}
         </View>
     );
 
-
+    // --- SUBMISSION HANDLER ---
     const handleFinalSubmit = async () => {
         if (!attireOption) {
-            Alert.alert('Incomplete Form', 'Please select whether you wish to Collect or Purchase the academic attire.');
+            Alert.alert('Incomplete Form', 'Please select Collect or Purchase.');
             return;
         }
-        
-        // Data payload structure
+
         const submissionData = {
             email,
-            attendance: 'attending', // Key change
-            attireOption: attireOption,
+            attendance: 'attending',
+            attireOption,
             attireSize: attireOption === 'collect' ? selectedSize : null,
-            representative: attireOption === 'collect' ? hasRepresentative : null,
-            representativeDetails: 
-                attireOption === 'collect' && hasRepresentative === 'yes' 
-                    ? { name: representativeName, id: representativeID } 
-                    : null,
+            collectionRepresentative: attireOption === 'collect' ? hasRepresentative : null,
         };
-        
-        // Validation check for 'collect' option
-        if (attireOption === 'collect') {
-            if (!selectedSize || hasRepresentative === null || (hasRepresentative === 'yes' && (!representativeName || !representativeID))) {
-                Alert.alert('Incomplete Form', 'Please complete all required fields for Academic Attire Collection.');
-                return;
-            }
+
+        if (attireOption === 'collect' && (!selectedSize || hasRepresentative === null)) {
+            Alert.alert('Incomplete Form', 'Please complete all fields.');
+            return;
         }
-        
+
         try {
-            // ✅ STEP 1: Call the new consolidated API to save all details
             const response = await fetch(`${API_URL}/save-attendance-details`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(submissionData),
             });
+
             const result = await response.json();
 
             if (!result.success) {
-                Alert.alert('Submission Failed', result.message || 'Unable to save attendance and attire details.');
+                Alert.alert('Submission Failed', result.message);
                 return;
             }
 
-            // Success Alert (Tailored to the option)
-            const successMessage = attireOption === 'collect'
-                ? 'Your collection details have been successfully recorded. You can view your QR ticket on the main page.'
-                : 'Thank you for confirming your intention to purchase. Please ensure you have completed the external form.';
+            const successMessage =
+                attireOption === 'collect'
+                    ? 'Your collection details have been saved.'
+                    : 'Thank you. Please complete the purchase form.';
 
             Alert.alert(
-                attireOption === 'collect' ? 'Attire Collection Confirmed' : 'Purchase Acknowledged',
+                attireOption === 'collect' ? 'Collection Confirmed' : 'Purchase Acknowledged',
                 successMessage,
                 [
                     {
                         text: 'OK',
-                        onPress: () => {
-                            // The task status is updated on the server, we just need to navigate back.
+                        onPress: () =>
                             navigation.navigate('MainApp', {
                                 screen: 'Confirmation',
-                                params: { email }
-                            });
-                        },
+                                params: { email },
+                            }),
                     },
                 ]
             );
-
-        } catch (error) {
-            console.error('Error submitting attire details:', error);
-            Alert.alert('Error', 'An error occurred during submission.');
+        } catch (err) {
+            Alert.alert('Error', 'An error occurred while submitting.');
         }
     };
-    
-    // Renders the size selection and representative options
+
     const renderCollectionDetails = () => (
         <>
             <AttireCard title="Select Attire Size">
-                {sizeOptions.map((option) => (
+                {sizeOptions.map(option => (
                     <RadioButton
                         key={option.value}
                         label={option.label}
@@ -149,8 +132,11 @@ const YesAttendance = ({ route }) => {
             </AttireCard>
 
             <AttireCard title="Collection Representative">
-                <Text style={{ marginBottom: 10 }}>Will a representative collect the attire on your behalf?</Text>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+                <Text style={styles.subText}>
+                    Will a representative collect the attire on your behalf?
+                </Text>
+
+                <View style={styles.rowBetween}>
                     <RadioButton
                         label="Yes"
                         value="yes"
@@ -166,88 +152,72 @@ const YesAttendance = ({ route }) => {
                 </View>
 
                 {hasRepresentative === 'yes' && (
-                    <View style={{ marginTop: 15, padding: 10, backgroundColor: '#f9f9f9', borderRadius: 5 }}>
-                        <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>Representative Details</Text>
-                        <TextInput
-                            style={{ borderWidth: 1, borderColor: '#ddd', padding: 10, borderRadius: 5, marginBottom: 10 }}
-                            placeholder="Representative Full Name"
-                            value={representativeName}
-                            onChangeText={setRepresentativeName}
-                        />
-                        <TextInput
-                            style={{ borderWidth: 1, borderColor: '#ddd', padding: 10, borderRadius: 5 }}
-                            placeholder="Representative ID / Passport No."
-                            value={representativeID}
-                            onChangeText={setRepresentativeID}
-                        />
+                    <View style={styles.repBox}>
+                        <Text style={styles.repTitle}>Representative Authorization Form</Text>
+                        <Text style={styles.repDescription}>
+                            Please download and complete this form. It must be presented during collection.
+                        </Text>
+
+                        <TouchableOpacity
+                            style={styles.repButton}
+                            onPress={() => Linking.openURL(REPRESENTATIVE_PDF_LINK)}
+                        >
+                            <Ionicons name="document-text" size={20} color="white" style={styles.repIcon} />
+                            <Text style={styles.repButtonText}>
+                                Download Authorization Form (PDF)
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                 )}
             </AttireCard>
         </>
     );
 
-    // Renders the purchase link
     const renderPurchaseDetails = () => (
         <AttireCard title="Academic Attire Purchase">
-            <Text style={{ marginBottom: 15 }}>
-                To purchase your academic attire, please complete the required details via the external form link below.
+            <Text style={styles.subText}>
+                Please complete your purchase using the form below.
             </Text>
-            <TouchableOpacity 
-                style={{ backgroundColor: '#28a745', padding: 12, borderRadius: 8, alignItems: 'center' }}
+
+            <TouchableOpacity
+                style={styles.purchaseButton}
                 onPress={() => Linking.openURL(PURCHASE_FORM_LINK)}
             >
-                <Text style={{ color: 'white', fontWeight: 'bold' }}>
-                    Open Purchase Order Form (Google Forms)
-                </Text>
+                <Text style={styles.purchaseButtonText}>Open Purchase Order Form</Text>
             </TouchableOpacity>
         </AttireCard>
     );
 
-
     return (
-        <View style={{ flex: 1, backgroundColor: '#f0f0f0' }}>
+        <View style={styles.container}>
             <Header title="Attendance & Academic Attire Confirmation" />
 
-            <ScrollView contentContainerStyle={{ paddingTop: 170, paddingHorizontal: 30, paddingBottom: 100 }}>
-                
-                {/* Step Indicators (Highlighting Step 2) */}
-                <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 20, paddingHorizontal: 50 }}>
-                    <View style={{ 
-                        width: 40, height: 40, borderRadius: 20, 
-                        backgroundColor: '#28a745', justifyContent: 'center', alignItems: 'center' 
-                    }}>
+            <ScrollView contentContainerStyle={styles.scroll}>
+                {/* STEP INDICATORS */}
+                <View style={styles.stepRow}>
+                    <View style={styles.stepCompleted}>
                         <Ionicons name="checkmark" size={24} color="white" />
                     </View>
-                    <View style={{ height: 2, backgroundColor: '#ccc', flex: 1, marginHorizontal: 20, alignSelf: 'center' }} />
-                    <View style={{ 
-                        width: 40, height: 40, borderRadius: 20, 
-                        backgroundColor: '#192F59', justifyContent: 'center', alignItems: 'center' 
-                    }}>
-                        <Text style={{ color: 'white', fontWeight: 'bold' }}>2</Text>
+
+                    <View style={styles.stepLine} />
+
+                    <View style={styles.stepActive}>
+                        <Text style={styles.stepNumber}>2</Text>
                     </View>
                 </View>
 
-                {/* Information Box */}
-                <View style={{ 
-                    borderWidth: 1, 
-                    borderColor: '#ccc', 
-                    padding: 15, 
-                    borderRadius: 5, 
-                    backgroundColor: 'white',
-                    marginBottom: 20
-                }}>
-                    <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>Collection of the Academic Attire</Text>
-                    <Text style={{ fontSize: 14 }}>
-                        Academic Attire can be collected using generated QR ticket according to scheduled sessions without any deposit fee payment.
+                {/* INFO BOX */}
+                <View style={styles.infoBox}>
+                    <Text style={styles.infoTitle}>Collection of Academic Attire</Text>
+                    <Text style={styles.infoText}>
+                        Academic attire can be collected using your generated QR ticket.
                     </Text>
                 </View>
 
-                {/* Main Choice Section */}
-                <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#192F59' }}>
-                    Collect / Purchase Academic Attire
-                </Text>
+                {/* MAIN CHOICE */}
+                <Text style={styles.sectionTitle}>Collect / Purchase Academic Attire</Text>
 
-                <View style={{ backgroundColor: 'white', padding: 15, borderRadius: 8 }}>
+                <View style={styles.choiceBox}>
                     <RadioButton
                         label="I wish to collect the Academic Attire"
                         value="collect"
@@ -261,26 +231,13 @@ const YesAttendance = ({ route }) => {
                         onSelect={setAttireOption}
                     />
                 </View>
-                
-                {/* Conditional Details Sections */}
+
                 {attireOption === 'collect' && renderCollectionDetails()}
                 {attireOption === 'purchase' && renderPurchaseDetails()}
 
-                {/* Final Submit Button - Only visible after a choice is made */}
                 {attireOption && (
-                    <TouchableOpacity 
-                        style={{ 
-                            backgroundColor: '#ffc107', 
-                            padding: 15,
-                            borderRadius: 30,
-                            marginTop: 40,
-                            alignItems: 'center'
-                        }}
-                        onPress={handleFinalSubmit}
-                    >
-                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#192F59' }}>
-                            Confirm Attire Details
-                        </Text>
+                    <TouchableOpacity style={styles.submitBtn} onPress={handleFinalSubmit}>
+                        <Text style={styles.submitText}>Confirm Attire Details</Text>
                     </TouchableOpacity>
                 )}
             </ScrollView>
@@ -289,3 +246,144 @@ const YesAttendance = ({ route }) => {
 };
 
 export default YesAttendance;
+
+const styles = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#f0f0f0' },
+
+    scroll: {
+        paddingTop: 170,
+        paddingHorizontal: 30,
+        paddingBottom: 100,
+    },
+
+    // Step Indicator
+    stepRow: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginBottom: 20,
+        paddingHorizontal: 50,
+    },
+    stepCompleted: {
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: '#28a745',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    stepLine: {
+        height: 2,
+        backgroundColor: '#ccc',
+        flex: 1,
+        marginHorizontal: 20,
+        alignSelf: 'center',
+    },
+    stepActive: {
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: '#192F59',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    stepNumber: { color: 'white', fontWeight: 'bold' },
+
+    // Info Box
+    infoBox: {
+        borderWidth: 1,
+        borderColor: '#ccc',
+        padding: 15,
+        borderRadius: 5,
+        backgroundColor: 'white',
+        marginBottom: 20,
+    },
+    infoTitle: { fontWeight: 'bold', marginBottom: 5 },
+    infoText: { fontSize: 14 },
+
+    // Section
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 15,
+        color: '#192F59',
+    },
+
+    // Card Wrapper
+    card: {
+        backgroundColor: 'white',
+        padding: 15,
+        borderRadius: 8,
+        marginTop: 15,
+        borderWidth: 1,
+        borderColor: '#ccc',
+    },
+    cardTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: '#192F59',
+    },
+
+    // Radio Button
+    radioRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
+    radioIcon: { marginRight: 10 },
+    radioLabel: { fontSize: 16 },
+
+    // Representative Section
+    rowBetween: { flexDirection: 'row', justifyContent: 'space-around' },
+    repBox: {
+        marginTop: 15,
+        padding: 15,
+        backgroundColor: '#f0f8ff',
+        borderRadius: 5,
+        borderWidth: 1,
+        borderColor: '#192F59',
+    },
+    repTitle: { fontWeight: 'bold', marginBottom: 10, color: '#192F59' },
+    repDescription: { marginBottom: 15, fontSize: 14 },
+
+    repButton: {
+        backgroundColor: '#192F59',
+        padding: 12,
+        borderRadius: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    repIcon: { marginRight: 8 },
+    repButtonText: { color: 'white', fontWeight: 'bold' },
+
+    // Purchase
+    purchaseButton: {
+        backgroundColor: '#28a745',
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    purchaseButtonText: { color: 'white', fontWeight: 'bold' },
+
+    // Choice Box
+    choiceBox: {
+        backgroundColor: 'white',
+        padding: 15,
+        paddingRight: 40,
+        borderRadius: 8,
+    },
+
+    // Submit Button
+    submitBtn: {
+        backgroundColor: '#ffc107',
+        padding: 15,
+        borderRadius: 30,
+        marginTop: 40,
+        alignItems: 'center',
+        width: "80%",
+        alignSelf: "center"
+    },
+    submitText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#192F59',
+    },
+
+    subText: {
+        marginBottom: 10,
+        fontSize: 14,
+    },
+});

@@ -38,7 +38,7 @@ module.exports = function registerUserRoutes(db, admin) {
   // ✅ Save Attendance Details API
   router.post('/save-attendance-details', async (req, res) => {
     try {
-      const { email, attendance, reason, attireOption, attireSize } = req.body;
+      const { email, attendance, reason, attireOption, attireSize, collectionRepresentative } = req.body;
 
       if (!email || !attendance) {
         return res.status(400).json({ success: false, message: 'Missing required fields' });
@@ -62,16 +62,19 @@ module.exports = function registerUserRoutes(db, admin) {
         updateData.nonAttendanceReason = reason;
         updateData.attireOption = null;
         updateData.attireSize = null;
+        updateData.collectionRepresentative = null;
         updateData.returnAttireStatus = null; // Not applicable for non-attending students
       } else if (attendance === 'attending') {
         updateData.attireOption = attireOption || null;
         updateData.attireSize = attireSize || null;
         updateData.nonAttendanceReason = null;
         
-        // ✅ Set returnAttireStatus based on attire option
+        // ✅ Handle collection representative for 'collect' option
         if (attireOption === 'collect') {
+          updateData.collectionRepresentative = collectionRepresentative || null; // 'yes' or 'no'
           updateData.returnAttireStatus = 'not-returned'; // Initialize for students collecting attire
         } else {
+          updateData.collectionRepresentative = null; // Not applicable for purchasing students
           updateData.returnAttireStatus = null; // Not applicable for purchasing students
         }
       }
@@ -183,8 +186,8 @@ module.exports = function registerUserRoutes(db, admin) {
           ...data,
           // Ensure default values for new fields
           rehearsalAttendanceStatus: data.rehearsalAttendanceStatus || null,
-          // returnAttireStatus is now set during attendance confirmation, no default needed here
           returnAttireStatus: data.returnAttireStatus !== undefined ? data.returnAttireStatus : null,
+          collectionRepresentative: data.collectionRepresentative || null,
         }
       });
     } catch (error) {

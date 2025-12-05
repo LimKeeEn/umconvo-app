@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
+  Modal,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -65,13 +67,15 @@ const NotificationScreen = () => {
   const [loading, setLoading] = useState(true);
   const [readNotifications, setReadNotifications] = useState(new Set());
   const [selectedTab, setSelectedTab] = useState('all');
-  const [userFaculty, setUserFaculty] = useState(null); // ✅ Store user's faculty
+  const [userFaculty, setUserFaculty] = useState(null);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
   const notificationListener = useRef();
   const responseListener = useRef();
 
   const projectID = "umconvo-app";
 
-  // ✅ Fetch current user's faculty from Firestore
+  // Fetch current user's faculty from Firestore
   useEffect(() => {
     const fetchUserFaculty = async () => {
       try {
@@ -158,17 +162,14 @@ const NotificationScreen = () => {
     };
   }, []);
 
-  // ✅ Filter notifications based on user's faculty
+  // Filter notifications based on user's faculty
   const filterNotificationsByFaculty = (notificationsList) => {
     if (!userFaculty) {
-      // If user faculty is not loaded yet, show all for now
       return notificationsList;
     }
 
     return notificationsList.filter((notification) => {
       const targetFaculty = notification.targetFaculty;
-      
-      // Show if notification is for "all" or matches user's faculty
       return targetFaculty === "all" || targetFaculty === userFaculty;
     });
   };
@@ -191,10 +192,9 @@ const NotificationScreen = () => {
           createdAt: doc.fields.createdAt.integerValue,
           type: doc.fields.type?.stringValue || "custom",
           category: doc.fields.metadata?.mapValue?.fields?.category?.stringValue || "general",
-          targetFaculty: doc.fields.targetFaculty?.stringValue || "all", // ✅ Get target faculty
+          targetFaculty: doc.fields.targetFaculty?.stringValue || "all",
         }));
 
-        // ✅ Filter notifications based on user's faculty
         const filteredNotifications = filterNotificationsByFaculty(formatted);
         setNotifications(filteredNotifications);
       }
@@ -206,11 +206,9 @@ const NotificationScreen = () => {
   };
 
   useEffect(() => {
-    // Only fetch notifications after user faculty is loaded
     if (userFaculty !== null) {
       fetchNotifications();
 
-      // Poll for new notifications every 30 seconds
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
     }
@@ -232,6 +230,19 @@ const NotificationScreen = () => {
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
 
     return d.toLocaleDateString() + " " + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatFullDate = (ms) => {
+    if (!ms) return "";
+    const d = new Date(parseInt(ms));
+    return d.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const getNotificationIcon = (type) => {
@@ -271,7 +282,13 @@ const NotificationScreen = () => {
     if (isUnread(notification.id)) {
       markAsRead(notification.id);
     }
-    // Add any additional navigation or action here
+    setSelectedNotification(notification);
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedNotification(null);
   };
 
   return (
@@ -376,7 +393,9 @@ const NotificationScreen = () => {
                           {getCategoryBadge(item.category)}
                         </Text>
                       </View>
-                      <Text style={styles.cardBody}>{item.body}</Text>
+                      <Text style={styles.cardBody} numberOfLines={2}>
+                        {item.body}
+                      </Text>
                       <Text style={styles.cardDate}>{formatDate(item.createdAt)}</Text>
                     </View>
                   </TouchableOpacity>
@@ -386,6 +405,77 @@ const NotificationScreen = () => {
           )}
         </ScrollView>
       )}
+
+      {/* Notification Detail Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={closeModal}
+        >
+          <Pressable 
+            style={styles.modalContent}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {selectedNotification && (
+              <>
+                {/* Modal Header */}
+                <View style={styles.modalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.modalIconContainer}>
+                      <View
+                        style={[
+                          styles.modalIconBadge,
+                          { backgroundColor: getNotificationColor(selectedNotification.type) + "20" },
+                        ]}
+                      >
+                        <Ionicons 
+                          name={getNotificationIcon(selectedNotification.type)} 
+                          size={28} 
+                          color={getNotificationColor(selectedNotification.type)} 
+                        />
+                      </View>
+                    </View>
+                  </View>
+                  <TouchableOpacity 
+                    onPress={closeModal}
+                    style={styles.closeButton}
+                  >
+                    <Ionicons name="close" size={28} color="#666" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Modal Body */}
+                <ScrollView style={styles.modalBody}>
+                  <Text style={styles.modalCategoryBadge}>
+                    {getCategoryBadge(selectedNotification.category)}
+                  </Text>
+                  <Text style={styles.modalTitle}>{selectedNotification.title}</Text>
+                  <Text style={styles.modalDate}>
+                    {formatFullDate(selectedNotification.createdAt)}
+                  </Text>
+                  <View style={styles.modalDivider} />
+                  <Text style={styles.modalBodyText}>{selectedNotification.body}</Text>
+                </ScrollView>
+
+                {/* Modal Footer */}
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity 
+                    style={styles.modalCloseButton}
+                    onPress={closeModal}
+                  >
+                    <Text style={styles.modalCloseButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -545,5 +635,98 @@ const styles = StyleSheet.create({
     color: "#999",
     fontSize: 14,
     textAlign: "center",
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    width: "100%",
+    maxHeight: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    padding: 20,
+    paddingBottom: 10,
+  },
+  modalIconContainer: {
+    alignItems: "flex-start",
+  },
+  modalIconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  modalCategoryBadge: {
+    fontSize: 13,
+    color: "#666",
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: "flex-start",
+    marginBottom: 12,
+    fontWeight: "600",
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#13274f",
+    marginBottom: 8,
+    lineHeight: 28,
+  },
+  modalDate: {
+    fontSize: 13,
+    color: "#999",
+    marginBottom: 16,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: "#f0f0f0",
+    marginBottom: 16,
+  },
+  modalBodyText: {
+    fontSize: 15,
+    color: "#333",
+    lineHeight: 24,
+  },
+  modalFooter: {
+    padding: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  modalCloseButton: {
+    backgroundColor: "#13274f",
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  modalCloseButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

@@ -446,7 +446,7 @@ export default function Register() {
 
   const handleSubmit = async () => {
     try {
-      const response = await fetch("http://192.168.0.162:5000/api/register-user", {
+      const response = await fetch("http://192.168.1.234:5000/api/register-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

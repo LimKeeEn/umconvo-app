@@ -5,7 +5,7 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-const API_URL = 'http://192.168.0.162:5000';
+const API_URL = 'http://192.168.1.234:5000';
 
 GoogleSignin.configure({
   webClientId: '868341431770-f06uasd307r3p5q2v4ree5lj1bpk1bc8.apps.googleusercontent.com',

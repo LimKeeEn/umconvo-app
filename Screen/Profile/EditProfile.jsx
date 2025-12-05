@@ -15,7 +15,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import * as ImagePicker from 'expo-image-picker';
 import { auth } from '../../firebaseConfig';
 
-const API_URL = 'http://192.168.0.162:5000/api';
+const API_URL = 'http://192.168.1.234:5000/api';
 
 const EditProfile = ({ navigation, route }) => {
   const userData = route.params?.userData || {};

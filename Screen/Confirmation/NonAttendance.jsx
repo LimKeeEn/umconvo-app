@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Header from '../../NavigationBar/Header.jsx'; 
 
-const API_URL = 'http://192.168.0.162:5000/api';
+const API_URL = 'http://192.168.1.234:5000/api';
 
 const NonAttendance = ({ route }) => {
     const navigation = useNavigation();

@@ -26,6 +26,7 @@
     "plugins": [
       "expo-web-browser",
       "@react-native-google-signin/google-signin",
+      "expo-document-picker",
       [
         "expo-media-library",
         {
@@ -38,7 +39,7 @@
         {
           "icon": "./assets/notification-icon.png",
           "color": "#FFFFFF",
-          "sounds": ["./assets/notification-sound.wav"],
+          "sounds": ["./assets/notification_sound.wav"],
           "mode": "production"
         }
       ]

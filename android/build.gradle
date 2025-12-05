@@ -13,10 +13,6 @@ buildscript {
   }
 }
 
-ext {
-  googlePlayServicesAuthVersion = "20.7.0"
-}
- 
 allprojects {
   repositories {
     google()

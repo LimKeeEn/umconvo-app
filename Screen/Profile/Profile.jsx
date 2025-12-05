@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import BottomNav from '../../NavigationBar/BottomNav';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
-const API_URL = 'http://192.168.0.162:5000/api';
+const API_URL = 'http://192.168.1.234:5000/api';
 
-// Task mapping for display names
 const taskDisplayNames = {
   'update-profile': 'Update Profile Information',
   'graduate-tracer': 'Completion of Graduate Tracer Study (SKPG)',
@@ -31,7 +30,7 @@ const Profile = ({ navigation, route }) => {
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState(null);
   const [token, setToken] = useState(null);
-  const [googlePhotoURL, setGooglePhotoURL] = useState(null); // Store Google profile picture
+  const [googlePhotoURL, setGooglePhotoURL] = useState(null);
   const [taskStatus, setTaskStatus] = useState(null);
   const [statusText, setStatusText] = useState('Loading...');
   const [tickets, setTickets] = useState([]);
@@ -41,6 +40,32 @@ const Profile = ({ navigation, route }) => {
   const [loadingConvocation, setLoadingConvocation] = useState(false);
   const [loadingAttire, setLoadingAttire] = useState(false);
 
+  const scrollViewRef = useRef(null);
+  const gownTicketRef = useRef(null);
+
+  // Handle navigation parameters to open ticket tab
+  useEffect(() => {
+    if (route.params?.openTab === 'ticket') {
+      setActiveTab('ticket');
+    }
+  }, [route.params]);
+
+  // Scroll to gown ticket after tickets are rendered
+  useEffect(() => {
+    if (route.params?.scrollToGown && activeTab === 'ticket' && tickets.length > 0) {
+      setTimeout(() => {
+        if (gownTicketRef.current && scrollViewRef.current) {
+          gownTicketRef.current.measureLayout(
+            scrollViewRef.current,
+            (x, y) => {
+              scrollViewRef.current.scrollTo({ y: y - 100, animated: true });
+            }
+          );
+        }
+      }, 500);
+    }
+  }, [route.params, activeTab, tickets]);
+
   // 1. Fetch Auth Token and Google Photo on Mount
   useEffect(() => {
     const auth = getAuth();
@@ -48,7 +73,6 @@ const Profile = ({ navigation, route }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && user.email) {
         setEmail(user.email);
-        // Get Google profile photo from Firebase Auth
         if (user.photoURL) {
           setGooglePhotoURL(user.photoURL);
         }
@@ -161,7 +185,6 @@ const Profile = ({ navigation, route }) => {
     if (!email || !token) return;
 
     const fetchData = async () => {
-        // Fetch task status
         try {
             const response = await fetch(`${API_URL}/get-tasks/${email}`);
             const result = await response.json();
@@ -177,7 +200,6 @@ const Profile = ({ navigation, route }) => {
             setStatusText('Unable to fetch status');
         }
         
-        // Fetch schedules in parallel
         await Promise.all([
           fetchConvocationScheduleData(token),
           fetchAttireScheduleData(token) 
@@ -327,7 +349,7 @@ const Profile = ({ navigation, route }) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('MainApp')}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="chevron-back" size={26} color="black" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>STUDENT PROFILE</Text>
@@ -336,7 +358,10 @@ const Profile = ({ navigation, route }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
+      <ScrollView 
+        ref={scrollViewRef}
+        contentContainerStyle={{ paddingBottom: 80 }}
+      >
         {/* Profile Section */}
         <View style={styles.profileSection}>
           <Image
@@ -559,6 +584,7 @@ const Profile = ({ navigation, route }) => {
               tickets.map((ticket) => (
                 <TouchableOpacity
                   key={ticket.id}
+                  ref={ticket.type === 'gown' ? gownTicketRef : null}
                   style={styles.ticketWrapper}
                   onPress={() => handleTicketPress(ticket)}
                   activeOpacity={0.7}
