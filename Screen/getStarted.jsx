@@ -94,7 +94,19 @@ const GetStarted = () => {
         <MaterialIcons name="chevron-right" size={52} color="#FFFFFF" />
       </TouchableOpacity>
 
-      <View style={styles.buttonContainer}>
+      <View style={[
+        styles.buttonContainer,
+        error && styles.buttonContainerWithError
+      ]}>
+        {/* {error && (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={20} color="#D32F2F" />
+            <Text style={styles.errorText}>
+              {error.message || 'Sign-in failed'}
+            </Text>
+          </View>
+        )} */}
+
         <TouchableOpacity
           style={styles.loginButtonGoogle}
           onPress={async () => {
@@ -122,12 +134,6 @@ const GetStarted = () => {
           <MaterialIcons name="person" size={24} color="#000000" />
           <Text style={styles.buttonText}>Continue as Guest</Text>
         </TouchableOpacity>
-
-        {error && (
-          <Text style={{ color: 'red', marginTop: 10, textAlign: 'center' }}>
-            {error.message || 'Sign-in failed'}
-          </Text>
-        )}
       </View>
     </View>
   );

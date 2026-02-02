@@ -48,32 +48,30 @@ import {
 // Helper function to get status color - **Modified to return a sortable priority value as well**
 const getStatusColorAndPriority = (dateString, timeString) => {
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  
   const startDate = new Date(dateString);
   startDate.setHours(0, 0, 0, 0);
 
   let color = "#4CAF50"; // Default: Green/Past
   let priority = 3; // Default: Lowest priority
 
-  // Helper to safely parse date/time for range check if a timeString exists
-  let endTime = null;
-  if (timeString) {
+  // Check if there's an end date (timeString is used to store end date)
+  let endDate = null;
+  if (timeString && timeString.trim()) {
     try {
-      const parts = timeString.split("-");
-      // Use the *end* time/date for the completion marker in a range
-      const endDateString = parts.length > 1 ? parts[1].trim() : timeString.trim(); 
-      // Assuming timeString/endDateString stores the *end date* for a period date
-      endTime = new Date(endDateString);
-      endTime.setHours(23, 59, 59, 999);
+      endDate = new Date(timeString);
+      endDate.setHours(23, 59, 59, 999);
     } catch (e) {
       // If parsing fails, fall back to simple single date check
-      endTime = null;
+      endDate = null;
     }
   }
 
   // Logic to determine status
-  if (endTime) {
-    // Range/End Date logic
-    if (now >= startDate && now <= endTime) {
+  if (endDate) {
+    // Range/End Date logic - event spans from startDate to endDate
+    if (now >= startDate && now <= endDate) {
       color = "#F44336"; // Red: Ongoing (Current)
       priority = 1;
     } else if (now < startDate) {
@@ -86,7 +84,7 @@ const getStatusColorAndPriority = (dateString, timeString) => {
         priority = 2;
       }
     } else {
-      // now > endTime, so it's past
+      // now > endDate, so it's past
       color = "#4CAF50"; // Green: Past/Completed
       priority = 3;
     }
@@ -456,28 +454,11 @@ const ImportantDates = () => {
     }
   }
 
-  const handleViewDate = async (date) => {
-    if (date.pdfUrl && !date.pdfFile) {
-      try {
-        setViewingDate({ ...date, loadingPdf: true })
-        setIsViewModalOpen(true)
-
-        const response = await fetch(date.pdfUrl)
-        const blob = await response.blob()
-        const file = new File([blob], date.pdfOriginalName || date.pdfName || "document.pdf", { type: "application/pdf" }) // Use original name
-
-        const updatedDate = { ...date, pdfFile: file, loadingPdf: false }
-        setViewingDate(updatedDate)
-
-        setDates(dates.map((d) => (d.id === date.id ? { ...d, pdfFile: file } : d)))
-      } catch (error) {
-        console.error("Error loading PDF:", error)
-        setViewingDate({ ...date, loadingPdf: false, pdfError: true })
-      }
-    } else {
-      setViewingDate(date)
-      setIsViewModalOpen(true)
-    }
+  const handleViewDate = (date) => {
+    // Instead of trying to fetch and convert to Blob (which causes CORS issues)
+    // We just set the viewing date. If pdfUrl exists, the iframe will use it directly.
+    setViewingDate(date)
+    setIsViewModalOpen(true)
   }
 
   // Removed all drag-and-drop handler functions:
@@ -923,10 +904,6 @@ const ImportantDates = () => {
       <div className="p-6 md:p-10">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-[#13274f] m-0">Important Dates</h1>
-          <div className="flex items-center gap-4">
-            <Mail className="w-6 h-6 text-gray-500 cursor-pointer hover:text-[#13274f] transition-colors" />
-            <Settings className="w-6 h-6 text-gray-500 cursor-pointer hover:text-[#13274f] transition-colors" />
-          </div>
         </div>
 
         {/* Tabs */}

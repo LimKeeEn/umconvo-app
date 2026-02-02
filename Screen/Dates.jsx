@@ -12,8 +12,10 @@ import {
   Modal,
   Linking,
   Alert,
+  Dimensions,
 } from "react-native"
 import { Ionicons } from "@expo/vector-icons"
+import { WebView } from 'react-native-webview'
 import styles from "../StyleSheet/dates.styles.js"
 import Header from '../NavigationBar/Header'
 
@@ -24,6 +26,9 @@ const Dates = () => {
   const [error, setError] = useState(null)
   const [selectedDate, setSelectedDate] = useState(null)
   const [modalVisible, setModalVisible] = useState(false)
+  const [pdfModalVisible, setPdfModalVisible] = useState(false)
+  const [currentPdfUrl, setCurrentPdfUrl] = useState(null)
+  const [pdfLoading, setPdfLoading] = useState(true)
 
   // Fetch data from Firebase
   useEffect(() => {
@@ -179,17 +184,39 @@ const Dates = () => {
     setModalVisible(true)
   }
 
-  // Handle PDF press
-  const handlePDFPress = async (pdfUrl, pdfName) => {
+  // Handle PDF press - Open PDF viewer modal
+  const handlePDFPress = (pdfUrl, pdfName) => {
     if (!pdfUrl) {
       Alert.alert("No PDF", "No PDF file is available for this date.")
       return
     }
 
+    setCurrentPdfUrl(pdfUrl)
+    setPdfLoading(true)
+    setPdfModalVisible(true)
+  }
+
+  // Close detail modal
+  const closeModal = () => {
+    setModalVisible(false)
+    setSelectedDate(null)
+  }
+
+  // Close PDF modal
+  const closePdfModal = () => {
+    setPdfModalVisible(false)
+    setCurrentPdfUrl(null)
+    setPdfLoading(true)
+  }
+
+  // Open PDF in external browser (fallback option)
+  const openPdfExternally = async () => {
+    if (!currentPdfUrl) return
+
     try {
-      const supported = await Linking.canOpenURL(pdfUrl)
+      const supported = await Linking.canOpenURL(currentPdfUrl)
       if (supported) {
-        await Linking.openURL(pdfUrl)
+        await Linking.openURL(currentPdfUrl)
       } else {
         Alert.alert("Error", "Cannot open PDF file.")
       }
@@ -197,12 +224,6 @@ const Dates = () => {
       console.error("Error opening PDF:", error)
       Alert.alert("Error", "Failed to open PDF file.")
     }
-  }
-
-  // Close modal
-  const closeModal = () => {
-    setModalVisible(false)
-    setSelectedDate(null)
   }
 
   if (loading) {
@@ -390,7 +411,7 @@ const Dates = () => {
                           <Text style={styles.pdfButtonTitle}>View PDF Guideline</Text>
                           <Text style={styles.pdfButtonSubtitle}>{selectedDate.pdfName || "Tap to open document"}</Text>
                         </View>
-                        <Ionicons name="open-outline" size={20} color="white" />
+                        <Ionicons name="eye-outline" size={20} color="white" />
                       </TouchableOpacity>
                     </View>
                   )}
@@ -406,6 +427,67 @@ const Dates = () => {
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* PDF Viewer Modal */}
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={pdfModalVisible}
+        onRequestClose={closePdfModal}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
+          {/* PDF Viewer Header */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: 15,
+            backgroundColor: '#13274f',
+            borderBottomWidth: 1,
+            borderBottomColor: '#ddd',
+            marginTop: 50
+          }}>
+            <TouchableOpacity onPress={closePdfModal} style={{ padding: 5 }}>
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: 'white', flex: 1, marginLeft: 15}}>
+              PDF Viewer
+            </Text>
+            <TouchableOpacity onPress={openPdfExternally} style={{ padding: 5 }}>
+              <Ionicons name="open-outline" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+
+          {/* PDF Content */}
+          {currentPdfUrl && (
+            <View style={{ flex: 1}}>
+              <WebView
+                source={{ uri: `https://docs.google.com/viewer?url=${encodeURIComponent(currentPdfUrl)}&embedded=true` }}
+                style={{ flex: 1 }}
+                onLoadStart={() => setPdfLoading(true)}
+                onLoadEnd={() => setPdfLoading(false)}
+                onError={(syntheticEvent) => {
+                  const { nativeEvent } = syntheticEvent;
+                  console.warn('WebView error: ', nativeEvent);
+                  setPdfLoading(false);
+                  Alert.alert(
+                    "Error Loading PDF",
+                    "Unable to display the PDF. Would you like to open it in your browser instead?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { text: "Open in Browser", onPress: openPdfExternally }
+                    ]
+                  );
+                }}
+                startInLoadingState={true}
+                scalesPageToFit={true}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+              />
+            </View>
+          )}
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   )

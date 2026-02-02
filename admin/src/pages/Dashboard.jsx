@@ -589,10 +589,7 @@ const Dashboard = () => {
       <div className="p-10" id="dashboard-top">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#13274f]">Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <Mail className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
-            <Settings className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
-          </div>
+
         </div>
 
         {/* Stats - Now Dynamic */}
@@ -626,7 +623,7 @@ const Dashboard = () => {
             <div className="bg-white rounded-xl shadow p-6 border border-gray-100">
               <div className="flex items-center mb-6">
                 <h2 className="text-xl font-semibold text-gray-800">
-                  {targetDateMs ? "Time Until Event" : "Set Your Countdown Target"}
+                  {targetDateMs ? "UM Convocation Countdown" : "Set Your Countdown Target"}
                 </h2>
                 <Edit
                   className="w-5 h-5 text-gray-500 ml-auto cursor-pointer hover:text-[#13274f]"

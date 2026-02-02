@@ -325,14 +325,14 @@ const NewPostCreator = ({ onGoBackToFeed, onPostSuccess, currentUserDisplayName 
                             </Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity
+                        {/* <TouchableOpacity
                             style={[creatorStyles.actionButton, creatorStyles.saveButton]}
                             onPress={handleSaveToGallery}
                             disabled={isPosting}
                         >
                             <Ionicons name="save-outline" size={20} color="#4F46E5" />
                             <Text style={[creatorStyles.actionButtonText, { color: '#4F46E5' }]}>Save to Gallery</Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                     </View>
 
                     {/* Reset Button */}
@@ -706,6 +706,7 @@ const creatorStyles = StyleSheet.create({
         fontSize: 15,
         fontWeight: "600",
         marginLeft: 8,
+        color: "#fff",
     },
     retakeBtn: {
         flexDirection: "row",

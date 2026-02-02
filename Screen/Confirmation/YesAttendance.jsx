@@ -8,7 +8,8 @@ import {
     TouchableOpacity,
     Alert,
     Linking,
-    StyleSheet
+    StyleSheet,
+    ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -19,7 +20,8 @@ import Header from '../../NavigationBar/Header.jsx';
 // --- CONSTANTS ---
 const PURCHASE_FORM_LINK = 'https://forms.gle/your-academic-attire-purchase-form';
 const REPRESENTATIVE_PDF_LINK = 'https://umconvo.um.edu.my/CONVO%202025/PPOG/DOKUMEN%20-%20IMPORTANT%20DATES/BORANG%20WAKIL%20AMBIL%20JUBAH.docx.pdf';
-const API_URL = 'http://192.168.1.234:5000/api';
+const API_URL = 'http://192.168.1.231:5000/api'; //rnm
+// const API_URL = 'http://172.20.10.2:5000/api'; //phone
 
 const sizeOptions = [
     { label: 'S (Small)', value: 'S' },
@@ -35,12 +37,57 @@ const YesAttendance = ({ route }) => {
     const [attireOption, setAttireOption] = useState(null);
     const [selectedSize, setSelectedSize] = useState(null);
     const [hasRepresentative, setHasRepresentative] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [errors, setErrors] = useState({});
+
+    // --- VALIDATION FUNCTION ---
+    const validateForm = () => {
+        const newErrors = {};
+
+        if (!attireOption) {
+            newErrors.attireOption = 'Please select whether to collect or purchase academic attire';
+            return { isValid: false, errors: newErrors };
+        }
+
+        if (attireOption === 'collect') {
+            if (!selectedSize) {
+                newErrors.selectedSize = 'Please select your attire size';
+            }
+            if (hasRepresentative === null) {
+                newErrors.hasRepresentative = 'Please indicate if you have a representative';
+            }
+        }
+
+        const isValid = Object.keys(newErrors).length === 0;
+        return { isValid, errors: newErrors };
+    };
+
+    // Check if form is complete for button state
+    const isFormComplete = () => {
+        if (!attireOption) return false;
+        
+        if (attireOption === 'collect') {
+            return selectedSize !== null && hasRepresentative !== null;
+        }
+        
+        if (attireOption === 'purchase') {
+            return true;
+        }
+        
+        return false;
+    };
 
     // --- UI COMPONENTS ---
     const RadioButton = ({ label, value, selectedValue, onSelect }) => (
         <TouchableOpacity
             style={styles.radioRow}
-            onPress={() => onSelect(value)}
+            onPress={() => {
+                onSelect(value);
+                // Clear related errors
+                if (value === 'collect' || value === 'purchase') {
+                    setErrors(prev => ({ ...prev, attireOption: '' }));
+                }
+            }}
         >
             <Ionicons
                 name={selectedValue === value ? 'radio-button-on' : 'radio-button-off'}
@@ -61,8 +108,13 @@ const YesAttendance = ({ route }) => {
 
     // --- SUBMISSION HANDLER ---
     const handleFinalSubmit = async () => {
-        if (!attireOption) {
-            Alert.alert('Incomplete Form', 'Please select Collect or Purchase.');
+        // Validate form
+        const { isValid, errors: validationErrors } = validateForm();
+        
+        if (!isValid) {
+            setErrors(validationErrors);
+            const firstError = Object.values(validationErrors)[0];
+            Alert.alert('Incomplete Form', firstError);
             return;
         }
 
@@ -74,10 +126,7 @@ const YesAttendance = ({ route }) => {
             collectionRepresentative: attireOption === 'collect' ? hasRepresentative : null,
         };
 
-        if (attireOption === 'collect' && (!selectedSize || hasRepresentative === null)) {
-            Alert.alert('Incomplete Form', 'Please complete all fields.');
-            return;
-        }
+        setSubmitting(true);
 
         try {
             const response = await fetch(`${API_URL}/save-attendance-details`, {
@@ -86,16 +135,20 @@ const YesAttendance = ({ route }) => {
                 body: JSON.stringify(submissionData),
             });
 
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
             const result = await response.json();
 
             if (!result.success) {
-                Alert.alert('Submission Failed', result.message);
+                Alert.alert('Submission Failed', result.message || 'Unable to save your details. Please try again.');
                 return;
             }
 
             const successMessage =
                 attireOption === 'collect'
-                    ? 'Your collection details have been saved.'
+                    ? 'Your collection details have been saved successfully.'
                     : 'Thank you. Please complete the purchase form.';
 
             Alert.alert(
@@ -113,7 +166,13 @@ const YesAttendance = ({ route }) => {
                 ]
             );
         } catch (err) {
-            Alert.alert('Error', 'An error occurred while submitting.');
+            console.error('Submission error:', err);
+            Alert.alert(
+                'Connection Error',
+                'An error occurred while submitting. Please check your internet connection and try again.'
+            );
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -126,9 +185,18 @@ const YesAttendance = ({ route }) => {
                         label={option.label}
                         value={option.value}
                         selectedValue={selectedSize}
-                        onSelect={setSelectedSize}
+                        onSelect={(value) => {
+                            setSelectedSize(value);
+                            setErrors(prev => ({ ...prev, selectedSize: '' }));
+                        }}
                     />
                 ))}
+                {errors.selectedSize && (
+                    <View style={styles.errorContainer}>
+                        <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                        <Text style={styles.errorText}>{errors.selectedSize}</Text>
+                    </View>
+                )}
             </AttireCard>
 
             <AttireCard title="Collection Representative">
@@ -141,15 +209,28 @@ const YesAttendance = ({ route }) => {
                         label="Yes"
                         value="yes"
                         selectedValue={hasRepresentative}
-                        onSelect={setHasRepresentative}
+                        onSelect={(value) => {
+                            setHasRepresentative(value);
+                            setErrors(prev => ({ ...prev, hasRepresentative: '' }));
+                        }}
                     />
                     <RadioButton
                         label="No"
                         value="no"
                         selectedValue={hasRepresentative}
-                        onSelect={setHasRepresentative}
+                        onSelect={(value) => {
+                            setHasRepresentative(value);
+                            setErrors(prev => ({ ...prev, hasRepresentative: '' }));
+                        }}
                     />
                 </View>
+
+                {errors.hasRepresentative && (
+                    <View style={styles.errorContainer}>
+                        <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                        <Text style={styles.errorText}>{errors.hasRepresentative}</Text>
+                    </View>
+                )}
 
                 {hasRepresentative === 'yes' && (
                     <View style={styles.repBox}>
@@ -160,7 +241,13 @@ const YesAttendance = ({ route }) => {
 
                         <TouchableOpacity
                             style={styles.repButton}
-                            onPress={() => Linking.openURL(REPRESENTATIVE_PDF_LINK)}
+                            onPress={() => {
+                                try {
+                                    Linking.openURL(REPRESENTATIVE_PDF_LINK);
+                                } catch (error) {
+                                    Alert.alert('Error', 'Unable to open the form. Please try again.');
+                                }
+                            }}
                         >
                             <Ionicons name="document-text" size={20} color="white" style={styles.repIcon} />
                             <Text style={styles.repButtonText}>
@@ -181,12 +268,25 @@ const YesAttendance = ({ route }) => {
 
             <TouchableOpacity
                 style={styles.purchaseButton}
-                onPress={() => Linking.openURL(PURCHASE_FORM_LINK)}
+                onPress={() => {
+                    // Directly navigate to Google Form
+                    const formURL = 'https://docs.google.com/forms/d/e/1FAIpQLSdN6Uz2oJDvNpZmE2BOB-1heemZ0n6MGEgdCNDY5hGImIPKuQ/viewform';
+                    Linking.canOpenURL(formURL)
+                        .then((supported) => {
+                            if (supported) {
+                                Linking.openURL(formURL);
+                            } else {
+                                Alert.alert('Error', 'Unable to open the purchase form.');
+                            }
+                        })
+                        .catch((err) => console.error('An error occurred', err));
+                }}
             >
                 <Text style={styles.purchaseButtonText}>Open Purchase Order Form</Text>
             </TouchableOpacity>
         </AttireCard>
     );
+
 
     return (
         <View style={styles.container}>
@@ -232,12 +332,35 @@ const YesAttendance = ({ route }) => {
                     />
                 </View>
 
+                {errors.attireOption && (
+                    <View style={[styles.errorContainer, { marginTop: 8 }]}>
+                        <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                        <Text style={styles.errorText}>{errors.attireOption}</Text>
+                    </View>
+                )}
+
                 {attireOption === 'collect' && renderCollectionDetails()}
                 {attireOption === 'purchase' && renderPurchaseDetails()}
 
                 {attireOption && (
-                    <TouchableOpacity style={styles.submitBtn} onPress={handleFinalSubmit}>
-                        <Text style={styles.submitText}>Confirm Attire Details</Text>
+                    <TouchableOpacity 
+                        style={[
+                            styles.submitBtn,
+                            (!isFormComplete() || submitting) && styles.submitBtnDisabled
+                        ]} 
+                        onPress={handleFinalSubmit}
+                        disabled={!isFormComplete() || submitting}
+                    >
+                        {submitting ? (
+                            <ActivityIndicator color="#192F59" />
+                        ) : (
+                            <Text style={[
+                                styles.submitText,
+                                (!isFormComplete() || submitting) && styles.submitTextDisabled
+                            ]}>
+                                Confirm Attire Details
+                            </Text>
+                        )}
                     </TouchableOpacity>
                 )}
             </ScrollView>
@@ -366,6 +489,20 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
 
+    // Error Handling
+    errorContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 8,
+        paddingHorizontal: 4,
+    },
+    errorText: {
+        color: '#DC2626',
+        fontSize: 12,
+        marginLeft: 4,
+        fontWeight: '500',
+    },
+
     // Submit Button
     submitBtn: {
         backgroundColor: '#ffc107',
@@ -376,10 +513,17 @@ const styles = StyleSheet.create({
         width: "80%",
         alignSelf: "center"
     },
+    submitBtnDisabled: {
+        backgroundColor: '#e0e0e0',
+        opacity: 0.6,
+    },
     submitText: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#192F59',
+    },
+    submitTextDisabled: {
+        color: '#999',
     },
 
     subText: {

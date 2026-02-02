@@ -323,14 +323,6 @@ const HelpSupport = () => {
       <div className="p-10">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-4xl font-bold text-[#13274f] m-0">Help & Support</h1>
-          <div className="flex items-center gap-4">
-            <Mail 
-              className="w-6 h-6 text-gray-500 cursor-pointer transition-colors duration-200 hover:text-[#13274f]"
-            />
-            <Settings
-              className="w-6 h-6 text-gray-500 cursor-pointer transition-colors duration-200 hover:text-[#13274f]"
-            />
-          </div>
         </div>
 
         {/* Tab Navigation */}
@@ -363,10 +355,10 @@ const HelpSupport = () => {
             />
           </div>
           <button className={getBtnClasses("search")}>SEARCH</button>
-          <button onClick={handleAddNew} className={getBtnClasses("add")}>
+          {/* <button onClick={handleAddNew} className={getBtnClasses("add")}>
             <Plus className="w-4 h-4" />
             ADD NEW
-          </button>
+          </button> */}
         </div>
 
         <div className="flex flex-col gap-4">

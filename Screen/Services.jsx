@@ -53,7 +53,7 @@ const Services = () => {
     <View style={{ flex: 1 }}>
        {/* Header */}
       <Header 
-        title="IMPORTANT DATES"
+        title="SERVICES"
         onNotificationPress={handleNotificationPress}
       />
       

@@ -71,8 +71,8 @@ const HomePage = () => {
 
     // Modal State
     const [modalVisible, setModalVisible] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null);
     const [selectedNews, setSelectedNews] = useState(null);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
     // --- Data Fetching Logic ---
     useEffect(() => {
@@ -99,13 +99,29 @@ const HomePage = () => {
                 const newsData = await newsResponse.json();
 
                 // Transform Firebase documents to local format
-                const formattedNews = newsData.documents?.map((doc) => ({
-                    id: doc.name.split("/").pop(),
-                    title: doc.fields.title.stringValue,
-                    imageUrl: doc.fields.url.stringValue,
-                    info: doc.fields.info?.stringValue || '',
-                    createdAt: doc.fields.createdAt?.integerValue || Date.now(),
-                })) || [];
+                const formattedNews = newsData.documents?.map((doc) => {
+                    // Support both old format (url) and new format (images array)
+                    let imageUrls = [];
+                    
+                    // Check for new format (images array)
+                    if (doc.fields.images && doc.fields.images.arrayValue) {
+                        imageUrls = doc.fields.images.arrayValue.values.map(
+                            item => item.stringValue
+                        );
+                    } 
+                    // Fallback to old format (single url)
+                    else if (doc.fields.url && doc.fields.url.stringValue) {
+                        imageUrls = [doc.fields.url.stringValue];
+                    }
+
+                    return {
+                        id: doc.name.split("/").pop(),
+                        title: doc.fields.title?.stringValue || 'Untitled',
+                        images: imageUrls, // Array of image URLs
+                        info: doc.fields.info?.stringValue || '',
+                        createdAt: doc.fields.createdAt?.integerValue || Date.now(),
+                    };
+                }) || [];
 
                 setNews(formattedNews);
 
@@ -126,9 +142,29 @@ const HomePage = () => {
     };
 
     const handleNewsPress = (item) => {
-        setSelectedImage(item.imageUrl);
         setSelectedNews(item);
+        setCurrentImageIndex(0);
         setModalVisible(true);
+    };
+
+    const closeModal = () => {
+        setModalVisible(false);
+        setSelectedNews(null);
+        setCurrentImageIndex(0);
+    };
+
+    const nextImage = () => {
+        if (selectedNews && selectedNews.images.length > 1) {
+            setCurrentImageIndex((prev) => (prev + 1) % selectedNews.images.length);
+        }
+    };
+
+    const prevImage = () => {
+        if (selectedNews && selectedNews.images.length > 1) {
+            setCurrentImageIndex((prev) => 
+                prev === 0 ? selectedNews.images.length - 1 : prev - 1
+            );
+        }
     };
 
     // --- UI Rendering ---
@@ -195,11 +231,29 @@ const HomePage = () => {
                             activeOpacity={0.7}
                             onPress={() => handleNewsPress(item)}
                         >
-                            <Image
-                                source={{ uri: item.imageUrl }} 
-                                style={styles.newsImage}
-                                resizeMode="cover" 
-                            />
+                            <View style={{ position: 'relative' }}>
+                                <Image
+                                    source={{ uri: item.images[0] || '/placeholder.svg' }} 
+                                    style={styles.newsImage}
+                                    resizeMode="cover" 
+                                />
+                                {/* Image counter badge */}
+                                {item.images.length > 1 && (
+                                    <View style={{
+                                        position: 'absolute',
+                                        top: 8,
+                                        right: 8,
+                                        backgroundColor: 'rgba(0,0,0,0.7)',
+                                        paddingHorizontal: 8,
+                                        paddingVertical: 4,
+                                        borderRadius: 12,
+                                    }}>
+                                        <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
+                                            1/{item.images.length}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
                             <Text style={styles.newsText} numberOfLines={2}>
                                 {item.title}
                             </Text>
@@ -219,19 +273,12 @@ const HomePage = () => {
                 animationType="fade"
                 transparent={true}
                 visible={modalVisible}
-                onRequestClose={() => {
-                    setModalVisible(false);
-                    setSelectedImage(null);
-                    setSelectedNews(null);
-                }}
+                onRequestClose={closeModal}
             >
                 <View style={styles.modalCenteredView}>
                     <TouchableOpacity
                         style={styles.modalCloseButton}
-                        onPress={() => {
-                            setModalVisible(false);
-                            setSelectedNews(null);
-                        }}
+                        onPress={closeModal}
                         activeOpacity={0.8}
                     >
                         <Ionicons name="close-circle" size={36} color="#FFF" />
@@ -241,18 +288,71 @@ const HomePage = () => {
                         contentContainerStyle={styles.modalScrollContent}
                         showsVerticalScrollIndicator={true}
                     >
-                        {selectedImage && (
-                            <Image
-                                source={{ uri: selectedImage }}
-                                style={styles.modalFullScreenImage}
-                                resizeMode="contain"
-                            />
+                        {selectedNews && selectedNews.images.length > 0 && (
+                            <View style={{ position: 'relative', width: width, minHeight: height * 0.6 }}>
+                                <Image
+                                    source={{ uri: selectedNews.images[currentImageIndex] }}
+                                    style={styles.modalFullScreenImage}
+                                    resizeMode="contain"
+                                />
+                                
+                                {/* Image counter */}
+                                {selectedNews.images.length > 1 && (
+                                    <View style={{
+                                        position: 'absolute',
+                                        top: 10,
+                                        alignSelf: 'center',
+                                        backgroundColor: 'rgba(0,0,0,0.7)',
+                                        paddingHorizontal: 12,
+                                        paddingVertical: 6,
+                                        borderRadius: 16,
+                                    }}>
+                                        <Text style={{ color: 'white', fontSize: 14, fontWeight: '600' }}>
+                                            {currentImageIndex + 1} / {selectedNews.images.length}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {/* Navigation arrows */}
+                                {selectedNews.images.length > 1 && (
+                                    <>
+                                        <TouchableOpacity
+                                            onPress={prevImage}
+                                            style={{
+                                                position: 'absolute',
+                                                left: 10,
+                                                top: '45%',
+                                                backgroundColor: 'rgba(0,0,0,0.5)',
+                                                borderRadius: 20,
+                                                padding: 10,
+                                            }}
+                                        >
+                                            <Ionicons name="chevron-back" size={24} color="white" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={nextImage}
+                                            style={{
+                                                position: 'absolute',
+                                                right: 10,
+                                                top: '45%',
+                                                backgroundColor: 'rgba(0,0,0,0.5)',
+                                                borderRadius: 20,
+                                                padding: 10,
+                                            }}
+                                        >
+                                            <Ionicons name="chevron-forward" size={24} color="white" />
+                                        </TouchableOpacity>
+                                    </>
+                                )}
+                            </View>
                         )}
                         
-                        {selectedNews && selectedNews.info && (
+                        {selectedNews && (selectedNews.title || selectedNews.info) && (
                             <View style={styles.modalInfoContainer}>
                                 <Text style={styles.modalInfoTitle}>{selectedNews.title}</Text>
-                                <Text style={styles.modalInfoText}>{selectedNews.info}</Text>
+                                {selectedNews.info && (
+                                    <Text style={styles.modalInfoText}>{selectedNews.info}</Text>
+                                )}
                             </View>
                         )}
                     </ScrollView>
