@@ -649,10 +649,6 @@ const AboutUs = () => {
       <div className="p-10">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#13274f] m-0">About Us</h1>
-          <div className="flex items-center gap-4">
-            <Mail className="w-6 h-6 text-gray-500 cursor-pointer transition duration-200 hover:text-gray-700" />
-            <Settings className="w-6 h-6 text-gray-500 cursor-pointer transition duration-200 hover:text-gray-700" />
-          </div>
         </div>
 
         {/* Tab Navigation */}

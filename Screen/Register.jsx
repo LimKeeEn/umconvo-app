@@ -15,7 +15,6 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 // Data structure for education levels, faculties, and programmes
 const EDUCATION_DATA = {
   Diploma: {
-    // Diploma programmes without faculty grouping
     programmes: [
       { label: "Diploma in Management", value: "Diploma in Management" },
       { label: "Diploma in Human Resource Management", value: "Diploma in Human Resource Management" },
@@ -389,6 +388,9 @@ export default function Register() {
     graduationSession: "",
   });
 
+  // State for field errors
+  const [errors, setErrors] = useState({});
+
   const [openEdu, setOpenEdu] = useState(false);
   const [openFaculty, setOpenFaculty] = useState(false);
   const [openProgramme, setOpenProgramme] = useState(false);
@@ -415,14 +417,15 @@ export default function Register() {
   // Update faculty and programme options when education level changes
   useEffect(() => {
     if (formData.educationLevel) {
+      // Clear error when user selects education level
+      setErrors(prev => ({ ...prev, educationLevel: "" }));
+      
       if (isDiploma) {
-        // For Diploma: disable faculty, enable programme directly
         setFacultyItems([]);
         const programmes = EDUCATION_DATA.Diploma.programmes || [];
         setProgrammeItems(programmes);
         setFormData(prev => ({ ...prev, faculty: "", programme: "" }));
       } else {
-        // For other levels: enable faculty, reset programme
         const faculties = EDUCATION_DATA[formData.educationLevel]?.faculties || [];
         setFacultyItems(faculties);
         setProgrammeItems([]);
@@ -434,19 +437,90 @@ export default function Register() {
     }
   }, [formData.educationLevel]);
 
-  // Update programme options when faculty changes (only for non-Diploma levels)
+  // Update programme options when faculty changes
   useEffect(() => {
     if (!isDiploma && formData.educationLevel && formData.faculty) {
+      // Clear error when user selects faculty
+      setErrors(prev => ({ ...prev, faculty: "" }));
+      
       const programmes = EDUCATION_DATA[formData.educationLevel]?.programmes[formData.faculty] || [];
       setProgrammeItems(programmes);
-      // Reset programme when faculty changes
       setFormData(prev => ({ ...prev, programme: "" }));
     }
   }, [formData.faculty, formData.educationLevel, isDiploma]);
 
+  // Clear error when field value changes
+  const handlePhoneChange = (text) => {
+    setFormData({ ...formData, phoneNo: text });
+    if (text.trim()) {
+      setErrors(prev => ({ ...prev, phoneNo: "" }));
+    }
+  };
+
+  const handleProgrammeChange = (callback) => {
+    const newValue = callback(formData.programme);
+    setFormData({ ...formData, programme: newValue });
+    if (newValue) {
+      setErrors(prev => ({ ...prev, programme: "" }));
+    }
+  };
+
+  const handleGraduationChange = (callback) => {
+    const newValue = callback(formData.graduationSession);
+    setFormData({ ...formData, graduationSession: newValue });
+    if (newValue) {
+      setErrors(prev => ({ ...prev, graduationSession: "" }));
+    }
+  };
+
+  // Validation function
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Validate phone number
+    if (!formData.phoneNo.trim()) {
+      newErrors.phoneNo = "Phone number is required";
+    } else if (!/^[0-9]{10,15}$/.test(formData.phoneNo.replace(/[\s-]/g, ''))) {
+      newErrors.phoneNo = "Please enter a valid phone number";
+    }
+
+    // Validate education level
+    if (!formData.educationLevel) {
+      newErrors.educationLevel = "Please select your education level";
+    }
+
+    // Validate faculty (only for non-Diploma)
+    if (!isDiploma && !formData.faculty) {
+      newErrors.faculty = "Please select your faculty";
+    }
+
+    // Validate programme
+    if (!formData.programme) {
+      newErrors.programme = "Please select your programme";
+    }
+
+    // Validate graduation session
+    if (!formData.graduationSession) {
+      newErrors.graduationSession = "Please select your graduation session";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async () => {
+    // Validate form first
+    if (!validateForm()) {
+      // Find first error and show it
+      const errorMessages = Object.values(errors).filter(Boolean);
+      if (errorMessages.length > 0) {
+        Alert.alert("Incomplete Form", errorMessages[0]);
+      }
+      return;
+    }
+
     try {
-      const response = await fetch("http://192.168.1.234:5000/api/register-user", {
+      const response = await fetch("http://192.168.1.231:5000/api/register-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -461,7 +535,7 @@ export default function Register() {
       }
     } catch (err) {
       console.error(err);
-      Alert.alert("Error", "Network or server error.");
+      Alert.alert("Error", "Network or server error. Please try again.");
     }
   };
 
@@ -510,100 +584,142 @@ export default function Register() {
             editable={false}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Phone No"
-            keyboardType="phone-pad"
-            value={formData.phoneNo}
-            onChangeText={(text) => setFormData({ ...formData, phoneNo: text })}
-          />
+          <View>
+            <TextInput
+              style={[
+                styles.input, 
+                errors.phoneNo && styles.inputError
+              ]}
+              placeholder="Phone No"
+              keyboardType="phone-pad"
+              value={formData.phoneNo}
+              onChangeText={handlePhoneChange}
+            />
+            {errors.phoneNo && (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                <Text style={styles.errorText}>{errors.phoneNo}</Text>
+              </View>
+            )}
+          </View>
 
-          <DropDownPicker
-            open={openEdu}
-            value={formData.educationLevel}
-            items={educationItems}
-            setOpen={setOpenEdu}
-            setValue={(callback) =>
-              setFormData({
-                ...formData,
-                educationLevel: callback(formData.educationLevel),
-              })
-            }
-            placeholder="Select Education Level"
-            style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownContainer}
-            listMode="SCROLLVIEW"
-            zIndex={4000}
-            zIndexInverse={1000}
-          />
-
-          {/* Only show Faculty dropdown if NOT Diploma */}
-          {!isDiploma && (
+          <View>
             <DropDownPicker
-              open={openFaculty}
-              value={formData.faculty}
-              items={facultyItems}
-              setOpen={setOpenFaculty}
+              open={openEdu}
+              value={formData.educationLevel}
+              items={educationItems}
+              setOpen={setOpenEdu}
               setValue={(callback) =>
                 setFormData({
                   ...formData,
-                  faculty: callback(formData.faculty),
+                  educationLevel: callback(formData.educationLevel),
                 })
               }
-              placeholder="Select Faculty"
-              style={[styles.dropdown, !formData.educationLevel && styles.disabledDropdown]}
+              placeholder="Select Education Level"
+              style={[
+                styles.dropdown,
+                errors.educationLevel && styles.dropdownError
+              ]}
               dropDownContainerStyle={styles.dropdownContainer}
               listMode="SCROLLVIEW"
-              disabled={!formData.educationLevel}
-              zIndex={3000}
-              zIndexInverse={2000}
+              zIndex={4000}
+              zIndexInverse={1000}
             />
+            {errors.educationLevel && (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                <Text style={styles.errorText}>{errors.educationLevel}</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Only show Faculty dropdown if NOT Diploma */}
+          {!isDiploma && (
+            <View>
+              <DropDownPicker
+                open={openFaculty}
+                value={formData.faculty}
+                items={facultyItems}
+                setOpen={setOpenFaculty}
+                setValue={(callback) =>
+                  setFormData({
+                    ...formData,
+                    faculty: callback(formData.faculty),
+                  })
+                }
+                placeholder="Select Faculty"
+                style={[
+                  styles.dropdown, 
+                  !formData.educationLevel && styles.disabledDropdown,
+                  errors.faculty && styles.dropdownError
+                ]}
+                dropDownContainerStyle={styles.dropdownContainer}
+                listMode="SCROLLVIEW"
+                disabled={!formData.educationLevel}
+                zIndex={3000}
+                zIndexInverse={2000}
+              />
+              {errors.faculty && (
+                <View style={styles.errorContainer}>
+                  <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                  <Text style={styles.errorText}>{errors.faculty}</Text>
+                </View>
+              )}
+            </View>
           )}
 
-          <DropDownPicker
-            open={openProgramme}
-            value={formData.programme}
-            items={programmeItems}
-            setOpen={setOpenProgramme}
-            setValue={(callback) =>
-              setFormData({
-                ...formData,
-                programme: callback(formData.programme),
-              })
-            }
-            placeholder="Select Programme"
-            style={[
-              styles.dropdown,
-              // For Diploma: enable if education level is selected
-              // For others: enable if faculty is selected
-              (isDiploma ? !formData.educationLevel : !formData.faculty) && styles.disabledDropdown
-            ]}
-            dropDownContainerStyle={styles.dropdownContainer}
-            listMode="SCROLLVIEW"
-            disabled={isDiploma ? !formData.educationLevel : !formData.faculty}
-            zIndex={2000}
-            zIndexInverse={3000}
-          />
+          <View>
+            <DropDownPicker
+              open={openProgramme}
+              value={formData.programme}
+              items={programmeItems}
+              setOpen={setOpenProgramme}
+              setValue={handleProgrammeChange}
+              placeholder="Select Programme"
+              style={[
+                styles.dropdown,
+                (isDiploma ? !formData.educationLevel : !formData.faculty) && styles.disabledDropdown,
+                errors.programme && styles.dropdownError
+              ]}
+              dropDownContainerStyle={styles.dropdownContainer}
+              listMode="SCROLLVIEW"
+              disabled={isDiploma ? !formData.educationLevel : !formData.faculty}
+              zIndex={2000}
+              zIndexInverse={3000}
+            />
+            {errors.programme && (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                <Text style={styles.errorText}>{errors.programme}</Text>
+              </View>
+            )}
+          </View>
 
-          <DropDownPicker
-            open={openGraduation}
-            value={formData.graduationSession}
-            items={graduationItems}
-            setOpen={setOpenGraduation}
-            setValue={(callback) =>
-              setFormData({
-                ...formData,
-                graduationSession: callback(formData.graduationSession),
-              })
-            }
-            placeholder="Select Graduation Session"
-            style={styles.dropdown}
-            dropDownContainerStyle={styles.dropdownContainer}
-            listMode="SCROLLVIEW"
-            zIndex={1000}
-            zIndexInverse={4000}
-            dropDownDirection="BOTTOM"
-          />
+          <View>
+            <DropDownPicker
+              open={openGraduation}
+              value={formData.graduationSession}
+              items={graduationItems}
+              setOpen={setOpenGraduation}
+              setValue={handleGraduationChange}
+              placeholder="Select Graduation Session"
+              style={[
+                styles.dropdown,
+                errors.graduationSession && styles.dropdownError
+              ]}
+              dropDownContainerStyle={styles.dropdownContainer}
+              listMode="SCROLLVIEW"
+              zIndex={1000}
+              zIndexInverse={4000}
+              dropDownDirection="BOTTOM"
+            />
+            {errors.graduationSession && (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                <Text style={styles.errorText}>{errors.graduationSession}</Text>
+              </View>
+            )}
+          </View>
 
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.registerButton} onPress={handleSubmit}>
@@ -628,7 +744,7 @@ export default function Register() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F9FAFB", justifyContent: "center", alignItems: "center" },
-  scrollContent: { paddingHorizontal: 30, paddingBottom: 50, paddingTop: 50 },
+  scrollContent: { paddingHorizontal: 30, paddingBottom: 100, paddingTop: 50 },
   backButton: { marginTop: 10, marginBottom: 8 },
   title: { fontSize: 26, fontWeight: "bold", color: "#001F54", marginBottom: 4 },
   subtitle: { fontSize: 13, color: "#6B7280", marginBottom: 15 },
@@ -643,11 +759,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 12,
   },
+  inputError: {
+    borderColor: "#DC2626",
+    borderWidth: 1.5,
+  },
   dropdown: {
     backgroundColor: "#fff",
     borderColor: "#D1D5DB",
     borderRadius: 10,
     marginBottom: 12,
+  },
+  dropdownError: {
+    borderColor: "#DC2626",
+    borderWidth: 1.5,
   },
   disabledDropdown: {
     backgroundColor: "#F3F4F6",
@@ -655,6 +779,19 @@ const styles = StyleSheet.create({
   },
   dropdownContainer: {
     borderColor: "#D1D5DB",
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  errorText: {
+    color: "#DC2626",
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: "500",
   },
   buttonContainer: {
     width: "100%",

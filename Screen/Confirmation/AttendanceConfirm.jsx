@@ -101,8 +101,12 @@ const AttendanceConfirmation = ({ route }) => {
 
                 {/* Submit Button */}
                 <TouchableOpacity 
-                    style={styles.submitButton}
+                    style={[
+                        styles.submitButton, 
+                        !attendanceOption && styles.submitButtonDisabled
+                    ]}
                     onPress={handleSubmit}
+                    disabled={!attendanceOption}
                 >
                     <Text style={styles.submitText}>Submit</Text>
                 </TouchableOpacity>
@@ -223,6 +227,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         width: "60%",
         alignSelf: "center"
+    },
+    submitButtonDisabled: {
+        backgroundColor: '#e0e0e0', // lighter color to indicate disabled
     },
 
     submitText: {

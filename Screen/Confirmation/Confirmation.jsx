@@ -9,18 +9,20 @@ import {
     Modal,
     Platform,
     StyleSheet,
-    Image, // Added for QR Code display
+    Image,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
-// Import local styles/components
-import styles from '../../StyleSheet/confirmation.styles.js'; // Assuming this stylesheet exists
-import Header from '../../NavigationBar/Header.jsx'; // Assuming this component exists
+import styles from '../../StyleSheet/confirmation.styles.js';
+import Header from '../../NavigationBar/Header.jsx';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Linking } from 'react-native';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import * as DocumentPicker from 'expo-document-picker'; 
 
-const API_URL = 'http://192.168.1.234:5000/api';
+const API_URL = 'http://192.168.1.231:5000/api'; //rnm
+// const API_URL = 'http://172.20.10.2:5000/api'; //phone
+// const API_URL = 'https://drifty-floretta-autoeciously.ngrok-free.dev/api';
+// const API_URL = 'https://theoretical-logs-exhibit-north.trycloudflare.com/api';
 
 const initialTasks = [
     { title: 'Update Profile Information', id: 'update-profile' },
@@ -32,17 +34,12 @@ const initialTasks = [
 ];
 
 // ----------------------------------------------------------------------
-// MODAL COMPONENT FOR ATTIRE RETURN QR CODE (MODIFIED)
+// MODAL COMPONENT FOR ATTIRE RETURN QR CODE
 // ----------------------------------------------------------------------
 const ReturnAttireModal = ({ visible, onClose, onConfirmReturn, studentDetails, modalStyles }) => {
     if (!studentDetails) return null;
 
-    const { 
-        confirmationCode, 
-        matricNo, 
-        username: studentName, 
-        attireSize,
-    } = studentDetails;
+    const { confirmationCode, matricNo, username: studentName, attireSize } = studentDetails;
 
     const qrData = JSON.stringify({
         type: 'attire-return',
@@ -58,12 +55,7 @@ const ReturnAttireModal = ({ visible, onClose, onConfirmReturn, studentDetails, 
     };
 
     return (
-        <Modal
-            visible={visible}
-            transparent={true}
-            animationType="fade"
-            onRequestClose={onClose}
-        >
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={modalStyles.backdrop}>
                 <View style={modalStyles.container}>
                     <View style={modalStyles.header}>
@@ -74,7 +66,6 @@ const ReturnAttireModal = ({ visible, onClose, onConfirmReturn, studentDetails, 
                         Present this QR code at the Return Counter. Tap "Returned" below only if the item has been physically checked in.
                     </Text>
 
-                    {/* QR Code Section */}
                     <View style={modalStyles.qrCodeSection}>
                         <Image
                             source={{ uri: getQRCodeUrl() }}
@@ -83,7 +74,6 @@ const ReturnAttireModal = ({ visible, onClose, onConfirmReturn, studentDetails, 
                         />
                     </View>
                     
-                    {/* Confirmed Details for scanning */}
                     <View style={modalStyles.infoSection}>
                         <View style={modalStyles.infoRow}>
                             <Ionicons name="person-outline" size={20} color="#666" />
@@ -103,17 +93,11 @@ const ReturnAttireModal = ({ visible, onClose, onConfirmReturn, studentDetails, 
                     </View>
                     
                     <View style={modalStyles.buttonContainer}>
-                        <TouchableOpacity
-                            style={[modalStyles.button, modalStyles.buttonNo]}
-                            onPress={onClose}
-                        >
+                        <TouchableOpacity style={[modalStyles.button, modalStyles.buttonNo]} onPress={onClose}>
                             <Text style={modalStyles.buttonTextNo}>Cancel</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[modalStyles.button, modalStyles.buttonYes]}
-                            onPress={onConfirmReturn} // Triggers the completion logic
-                        >
+                        <TouchableOpacity style={[modalStyles.button, modalStyles.buttonYes]} onPress={onConfirmReturn}>
                             <Text style={modalStyles.buttonTextYes}>Returned</Text>
                         </TouchableOpacity>
                     </View>
@@ -142,6 +126,7 @@ const Confirmation = () => {
     const [showReturnModal, setShowReturnModal] = useState(false); 
     const [uploadedFile, setUploadedFile] = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [tracerError, setTracerError] = useState(null);
 
     // ✅ Fetch Auth Token on Mount
     useEffect(() => {
@@ -292,6 +277,7 @@ const Confirmation = () => {
                     type: selectedFile.mimeType,
                     size: selectedFile.size || 0
                 });
+                setTracerError(null); // Clear error when file selected
             }
         } catch (error) {
             console.error('Error picking document:', error);
@@ -302,10 +288,12 @@ const Confirmation = () => {
     // ✅ Handle Tracer Study Submission
     const handleTracerSubmit = async () => {
         if (!uploadedFile) {
-            Alert.alert('Error', 'Please upload a PDF proof of completion');
+            setTracerError('Please upload a PDF proof before submitting.');
+            Alert.alert('Missing File', 'Please upload a PDF proof before submitting.');
             return;
         }
 
+        setTracerError(null);
         setUploading(true);
         try {
             const formData = new FormData();
@@ -321,14 +309,13 @@ const Confirmation = () => {
             const response = await fetch(`${API_URL}/upload-tracer-proof`, {
                 method: 'POST',
                 body: formData,
-                headers: {}, // RN handles Content-Type for FormData
             });
 
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 const errorText = await response.text();
                 console.error('❌ Server returned non-JSON response:', errorText.substring(0, 500));
-                Alert.alert('Server Error', 'The server returned an unexpected response. Please check your backend logs.');
+                Alert.alert('Server Error', 'The server returned an unexpected response. Please try again later.');
                 return;
             }
 
@@ -345,16 +332,14 @@ const Confirmation = () => {
 
                 setShowTracerModal(false);
                 setUploadedFile(null);
+                setTracerError(null);
                 Alert.alert('Success', 'Graduate Tracer Study proof uploaded successfully!');
             } else {
                 Alert.alert('Error', result.message || 'Failed to upload proof');
             }
         } catch (error) {
             console.error('❌ Error submitting tracer study:', error);
-            Alert.alert(
-                'Upload Failed',
-                `Could not upload the file. Error: ${error.message}\n\nPlease check your internet connection and try again.`
-            );
+            Alert.alert('Upload Failed', 'Could not upload the file. Please check your internet connection and try again.');
         } finally {
             setUploading(false);
         }
@@ -451,7 +436,7 @@ const Confirmation = () => {
         }));
     };
 
-    // ✅ Handle Return Confirmation (MODIFIED to show modal)
+    // ✅ Handle Return Confirmation
     const handleReturnConfirmation = () => {
         const currentIndex = tasks.findIndex(t => t.id === 'attire-return');
         const previousIncomplete = tasks.slice(0, currentIndex).some(t => t.status !== 'completed');
@@ -466,15 +451,14 @@ const Confirmation = () => {
             return;
         }
 
-        // Show the QR code modal
         setShowReturnModal(true);
     };
 
     // ✅ Handle generic confirmation for each step
     const handleTaskConfirmation = (task) => {
         const currentIndex = tasks.findIndex(t => t.id === task.id);
-
         const previousIncomplete = tasks.slice(0, currentIndex).some(t => t.status !== 'completed');
+
         if (previousIncomplete) {
             Alert.alert('Please complete previous steps first.');
             return;
@@ -505,19 +489,16 @@ const Confirmation = () => {
                 ],
                 { cancelable: true }
             );
-        }
-
+        } 
         else if (task.id === 'graduate-tracer') {
             setShowTracerModal(true);
         }
-
         else if (task.id === 'attire-confirmation') {
             navigation.navigate('AttendanceConfirm', {
                 email,
                 updateTaskStatus: updateTaskStatus,
             });
         }
-
         else if (task.id === 'attire-collection') {
             if (studentDetails?.attendanceStatus !== 'attending') {
                 Alert.alert('Not Applicable', 'This step is only for students attending the ceremony.');
@@ -525,15 +506,12 @@ const Confirmation = () => {
             }
             setShowCollectionModal(true);
         }
-
         else if (task.id === 'rehearsal-confirmation') {
             handleRehearsalConfirmation();
         }
-
         else if (task.id === 'attire-return') {
             handleReturnConfirmation();
         }
-
         else {
             Alert.alert(
                 'Confirm Task',
@@ -677,13 +655,12 @@ const Confirmation = () => {
                 ))}
             </ScrollView>
 
-            {/* Graduate Tracer Study Upload Modal (Unchanged) */}
-            <Modal
-                visible={showTracerModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowTracerModal(false)}
-            >
+            {/* Graduate Tracer Study Upload Modal */}
+            <Modal visible={showTracerModal} transparent animationType="fade" onRequestClose={() => {
+                setShowTracerModal(false);
+                setUploadedFile(null);
+                setTracerError(null);
+            }}>
                 <View style={modalStyles.backdrop}>
                     <View style={modalStyles.container}>
                         <View style={modalStyles.header}>
@@ -705,6 +682,12 @@ const Confirmation = () => {
                             </Text>
                         </TouchableOpacity>
 
+                        {tracerError && (
+                            <Text style={{ color: '#dc3545', marginBottom: 10, textAlign: 'center' }}>
+                                {tracerError}
+                            </Text>
+                        )}
+
                         {uploadedFile && (
                             <View style={modalStyles.filePreview}>
                                 <Ionicons name="document" size={20} color="#28a745" />
@@ -718,13 +701,18 @@ const Confirmation = () => {
                                 onPress={() => {
                                     setShowTracerModal(false);
                                     setUploadedFile(null);
+                                    setTracerError(null);
                                 }}
                             >
                                 <Text style={modalStyles.buttonTextNo}>Cancel</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
-                                style={[modalStyles.button, modalStyles.buttonYes]}
+                                style={[
+                                    modalStyles.button,
+                                    modalStyles.buttonYes,
+                                    (!uploadedFile || uploading) && { opacity: 0.6 }
+                                ]}
                                 onPress={handleTracerSubmit}
                                 disabled={!uploadedFile || uploading}
                             >
@@ -746,13 +734,8 @@ const Confirmation = () => {
                 </View>
             </Modal>
 
-            {/* Collection Modal (Unchanged) */}
-            <Modal
-                visible={showCollectionModal}
-                transparent={true}
-                animationType="fade"
-                onRequestClose={() => setShowCollectionModal(false)}
-            >
+            {/* Collection Modal */}
+            <Modal visible={showCollectionModal} transparent animationType="fade" onRequestClose={() => setShowCollectionModal(false)}>
                 <View style={modalStyles.backdrop}>
                     <View style={modalStyles.container}>
                         <View style={modalStyles.header}>
@@ -803,22 +786,15 @@ const Confirmation = () => {
                                 <Text style={modalStyles.buttonTextYes}>Yes, Collected</Text>
                             </TouchableOpacity>
                         </View>
-
-                        <TouchableOpacity
-                            style={[modalStyles.button, modalStyles.buttonCancel]}
-                            onPress={() => setShowCollectionModal(false)}
-                        >
-                            <Text style={modalStyles.buttonTextNo}>Cancel</Text>
-                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
 
-            {/* ⭐️ ACADEMIC ATTIRE RETURN QR CODE MODAL ⭐️ */}
+            {/* Academic Attire Return QR Code Modal */}
             <ReturnAttireModal
                 visible={showReturnModal}
                 onClose={() => setShowReturnModal(false)}
-                onConfirmReturn={markReturnAsCompleted} // Pass the completion handler
+                onConfirmReturn={markReturnAsCompleted}
                 studentDetails={studentDetails}
                 modalStyles={modalStyles}
             />
@@ -826,7 +802,9 @@ const Confirmation = () => {
     );
 };
 
-// Define modalStyles (extended with QR elements)
+// ----------------------------------------------------------------------
+// MODAL STYLES
+// ----------------------------------------------------------------------
 const modalStyles = {
     backdrop: {
         flex: 1,
@@ -865,7 +843,6 @@ const modalStyles = {
         marginBottom: 20,
         lineHeight: 20,
     },
-    // --- QR Specific Styles ---
     qrCodeSection: {
         padding: 10,
         backgroundColor: '#F9FAFB',
@@ -879,7 +856,6 @@ const modalStyles = {
         width: 200,
         height: 200,
     },
-    // --- Existing Styles ---
     uploadButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -947,7 +923,7 @@ const modalStyles = {
     buttonContainer: {
         flexDirection: 'row',
         gap: 10,
-        marginTop: 10, // Adjusted margin to separate from infoSection
+        marginTop: 10,
     },
     button: {
         flex: 1,

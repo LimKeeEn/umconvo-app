@@ -13,7 +13,10 @@ import { Ionicons } from '@expo/vector-icons';
 import BottomNav from '../../NavigationBar/BottomNav';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
-const API_URL = 'http://192.168.1.234:5000/api';
+const API_URL = 'http://192.168.1.231:5000/api'; //rnm
+// const API_URL = 'http://172.20.10.2:5000/api'; //phone
+// const API_URL = 'https://drifty-floretta-autoeciously.ngrok-free.dev/api';
+// const API_URL = 'https://park-battery-interventions-landscapes.trycloudflare.com/api';
 
 const taskDisplayNames = {
   'update-profile': 'Update Profile Information',

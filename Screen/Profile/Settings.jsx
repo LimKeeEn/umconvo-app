@@ -15,8 +15,12 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { signOut } from 'firebase/auth';
 import { auth } from '../../firebaseConfig';
+import { Linking } from 'react-native';
 
-const API_URL = 'http://192.168.1.234:5000/api';
+const API_URL = 'http://192.168.1.231:5000/api';
+// const API_URL = 'http://172.20.10.2:5000/api'; //phone
+// const API_URL = 'https://drifty-floretta-autoeciously.ngrok-free.dev/api';
+// const API_URL = 'https://staff-contest-acne-atom.trycloudflare.com/api';
 
 // Logout Confirmation Modal Component
 const LogoutConfirmationModal = ({ isVisible, onClose, onConfirm }) => {
@@ -136,6 +140,22 @@ export default function Settings({ navigation }) {
     );
   }
 
+  const openHelpDesk = () => {
+    const url = 'https://helpdesk.um.edu.my/';
+
+    Linking.openURL(url).catch(err =>
+      console.error('Failed to open URL:', err)
+    );
+  };
+
+  const openFeedbackForm = () => {
+    const url = 'https://docs.google.com/forms/d/e/1FAIpQLSf4EUWebFYK0nHsT48tDNOLl2JcMk2xrzDI1nju0hjY_RInPg/viewform';
+
+    Linking.openURL(url).catch(err =>
+      console.error('Failed to open URL:', err)
+    );
+  };
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: themeStyles.backgroundColor }]}>
       {/* Header */}
@@ -181,7 +201,7 @@ export default function Settings({ navigation }) {
         </TouchableOpacity>
 
         {/* Dark Mode Toggle */}
-        <TouchableOpacity
+        {/* <TouchableOpacity
           style={styles.item}
           activeOpacity={0.8}
           onPress={() => setIsDarkMode(!isDarkMode)}
@@ -196,7 +216,7 @@ export default function Settings({ navigation }) {
             trackColor={{ false: '#ccc', true: '#FFD93D' }}
             thumbColor={isDarkMode ? '#fff' : '#f4f3f4'}
           />
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         {/* Logout Button */}
         <TouchableOpacity style={styles.item} onPress={showLogoutModal}>
@@ -211,7 +231,7 @@ export default function Settings({ navigation }) {
       <View style={[styles.section, { backgroundColor: themeStyles.cardColor }]}>
         <Text style={[styles.sectionTitle, { color: themeStyles.secondaryText }]}>Help & Support</Text>
 
-        <TouchableOpacity style={styles.item} onPress={() => handlePress('HelpDesk')}>
+        <TouchableOpacity style={styles.item} onPress={openHelpDesk}>
           <View style={styles.itemLeft}>
             <Ionicons name="headset-outline" size={22} color={themeStyles.textColor} />
             <Text style={[styles.itemText, { color: themeStyles.textColor }]}>HelpDesk</Text>
@@ -230,7 +250,7 @@ export default function Settings({ navigation }) {
           <Ionicons name="chevron-forward-outline" size={20} color="#aaa" />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.item} onPress={() => handlePress('Feedback Form')}>
+        <TouchableOpacity style={styles.item} onPress={openFeedbackForm}>
           <View style={styles.itemLeft}>
             <Ionicons name="document-text-outline" size={22} color={themeStyles.textColor} />
             <Text style={[styles.itemText, { color: themeStyles.textColor }]}>Feedback Form</Text>

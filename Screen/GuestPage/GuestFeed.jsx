@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import Header from './GuestHeader';
+import Header from './GuestHeader'
 // 1. ADDED: Import Firebase auth object (assuming it's available in this file's scope or imported from its config)
 // You must ensure you have firebaseConfig.js in a relative path, or modify this line:
 import { auth } from '../../firebaseConfig'; 
@@ -27,9 +27,9 @@ const BOTTOM_NAV_HEIGHT = 80;
 // --- Custom PNG Frames Data ---
 const frames = [
     { id: "none", label: "No Frame", file: null },
-    { id: "frame1", label: "Golden Frame", file: require("../../assets/frames/frame1.png") },
-    // { id: "frame2", label: "Blue Floral", file: require("../assets/frames/frame2.png") }, 
-    // { id: "convocation", label: "Convocation Frame", file: require("../assets/frames/frame3.png") }, 
+    { id: "frame1", label: "Frame 1", file: require("../../assets/frames/Frame_1.png") }, 
+    { id: "frame2", label: "Frame 2", file: require("../../assets/frames/Frame_2.png") }, 
+    { id: "frame3", label: "Frame 3", file: require("../../assets/frames/Frame_3.png") },
 ];
 
 // Helper to format Firebase document fields
@@ -325,14 +325,14 @@ const NewPostCreator = ({ onGoBackToFeed, onPostSuccess, currentUserDisplayName 
                             </Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity
+                        {/* <TouchableOpacity
                             style={[creatorStyles.actionButton, creatorStyles.saveButton]}
                             onPress={handleSaveToGallery}
                             disabled={isPosting}
                         >
                             <Ionicons name="save-outline" size={20} color="#4F46E5" />
                             <Text style={[creatorStyles.actionButtonText, { color: '#4F46E5' }]}>Save to Gallery</Text>
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                     </View>
 
                     {/* Reset Button */}
@@ -706,6 +706,7 @@ const creatorStyles = StyleSheet.create({
         fontSize: 15,
         fontWeight: "600",
         marginLeft: 8,
+        color: "#fff",
     },
     retakeBtn: {
         flexDirection: "row",

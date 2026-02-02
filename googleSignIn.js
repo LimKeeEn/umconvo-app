@@ -5,7 +5,9 @@ import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-si
 import { Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
-const API_URL = 'http://192.168.1.234:5000';
+const API_URL = 'http://192.168.1.231:5000'; //rnm
+// const API_URL = 'http://172.20.10.2:5000'; //phone
+//const API_URL = 'https://drifty-floretta-autoeciously.ngrok-free.dev'; //home
 
 GoogleSignin.configure({
   webClientId: '868341431770-f06uasd307r3p5q2v4ree5lj1bpk1bc8.apps.googleusercontent.com',
@@ -46,7 +48,10 @@ export function useGoogleSignIn(onSuccess) {
       console.log('Sending ID token to backend...');
       const response = await fetch(`${API_URL}/api/verify-user`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          'User-Agent': 'ReactNativeApp'
+         },
         body: JSON.stringify({ idToken: firebaseIdToken }),
       });
 
@@ -78,7 +83,10 @@ export function useGoogleSignIn(onSuccess) {
       console.log('Checking if user is registered...');
       const userCheckResponse = await fetch(`${API_URL}/api/get-user/${encodeURIComponent(firebaseUser.email)}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          'User-Agent': 'ReactNativeApp'
+         },
       });
 
       const userCheckData = await userCheckResponse.json();

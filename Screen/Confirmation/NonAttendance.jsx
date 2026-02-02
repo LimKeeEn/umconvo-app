@@ -5,19 +5,25 @@ import {
     ScrollView,
     TouchableOpacity,
     Alert,
-    StyleSheet
+    StyleSheet,
+    ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import Header from '../../NavigationBar/Header.jsx'; 
 
-const API_URL = 'http://192.168.1.234:5000/api';
+const API_URL = 'http://192.168.1.231:5000/api'; //rnm
+// const API_URL = 'http://172.20.10.2:5000/api'; //phone
+// const API_URL = 'https://drifty-floretta-autoeciously.ngrok-free.dev/api';
+// const API_URL = 'https://theoretical-logs-exhibit-north.trycloudflare.com/api';
 
 const NonAttendance = ({ route }) => {
     const navigation = useNavigation();
     const { email } = route.params;
 
-    const [selectedReason, setSelectedReason] = useState(null); 
+    const [selectedReason, setSelectedReason] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
 
     const reasonOptions = [
         { label: 'Health Reasons', value: 'Health Reasons' },
@@ -28,10 +34,18 @@ const NonAttendance = ({ route }) => {
     ];
 
     const handleSubmitReason = async () => {
+        // Validate selection
         if (!selectedReason) {
-            Alert.alert('Selection Required', 'Please select a reason for non-attendance.');
+            setError('Please select a reason for non-attendance');
+            Alert.alert(
+                'Selection Required',
+                'Please select a reason for not attending the ceremony.'
+            );
             return;
         }
+
+        setSubmitting(true);
+        setError('');
 
         try {
             const response = await fetch(`${API_URL}/save-attendance-details`, {
@@ -43,16 +57,20 @@ const NonAttendance = ({ route }) => {
                     reason: selectedReason 
                 }),
             });
+
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+
             const result = await response.json();
 
             if (!result.success) {
-                Alert.alert('Submission Failed', result.message || 'Unable to save non-attendance details.');
-                return;
+                throw new Error(result.message || 'Unable to save non-attendance details');
             }
 
             Alert.alert(
                 'Non-Attendance Confirmed',
-                `Your reason for not attending (${selectedReason}) has been recorded. The process is now complete.`,
+                `Your reason for not attending (${selectedReason}) has been recorded successfully. The process is now complete.`,
                 [
                     { 
                         text: 'OK', 
@@ -68,7 +86,12 @@ const NonAttendance = ({ route }) => {
 
         } catch (error) {
             console.error('Error submitting non-attendance:', error);
-            Alert.alert('Error', 'An error occurred during submission.');
+            Alert.alert(
+                'Submission Error',
+                error.message || 'An error occurred during submission. Please check your connection and try again.'
+            );
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -78,7 +101,10 @@ const NonAttendance = ({ route }) => {
                 styles.radioButton,
                 { borderColor: selectedValue === value ? '#192F59' : '#e0e0e0' }
             ]}
-            onPress={() => onSelect(value)}
+            onPress={() => {
+                onSelect(value);
+                setError(''); // Clear error when user selects
+            }}
         >
             <Text style={styles.radioLabel}>{label}</Text>
             <Ionicons 
@@ -132,12 +158,33 @@ const NonAttendance = ({ route }) => {
                     ))}
                 </View>
 
+                {/* Error Message */}
+                {error && (
+                    <View style={styles.errorContainer}>
+                        <Ionicons name="alert-circle" size={16} color="#DC2626" />
+                        <Text style={styles.errorText}>{error}</Text>
+                    </View>
+                )}
+
                 {/* Submit Button */}
                 <TouchableOpacity 
-                    style={styles.submitButton}
+                    style={[
+                        styles.submitButton,
+                        (!selectedReason || submitting) && styles.submitButtonDisabled
+                    ]}
                     onPress={handleSubmitReason}
+                    disabled={!selectedReason || submitting}
                 >
-                    <Text style={styles.submitText}>Submit Reason</Text>
+                    {submitting ? (
+                        <ActivityIndicator color="#192F59" />
+                    ) : (
+                        <Text style={[
+                            styles.submitText,
+                            (!selectedReason || submitting) && styles.submitTextDisabled
+                        ]}>
+                            Submit Reason
+                        </Text>
+                    )}
                 </TouchableOpacity>
 
             </ScrollView>
@@ -215,23 +262,48 @@ const styles = StyleSheet.create({
         padding: 15,
         backgroundColor: 'white',
         borderRadius: 8,
-        borderWidth: 1
+        borderWidth: 2
     },
     radioLabel: {
         flex: 1,
         fontSize: 16
+    },
+    errorContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 15,
+        paddingHorizontal: 4,
+        backgroundColor: '#FFEBEE',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#FFCDD2',
+    },
+    errorText: {
+        color: '#DC2626',
+        fontSize: 14,
+        marginLeft: 8,
+        fontWeight: '500',
     },
     submitButton: {
         backgroundColor: '#ffc107',
         padding: 15,
         borderRadius: 30,
         marginTop: 40,
-        alignItems: 'center'
+        alignItems: 'center',
+        marginHorizontal: 30
+    },
+    submitButtonDisabled: {
+        backgroundColor: '#e0e0e0',
+        opacity: 0.6,
     },
     submitText: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#192F59'
+    },
+    submitTextDisabled: {
+        color: '#999',
     }
 });
 

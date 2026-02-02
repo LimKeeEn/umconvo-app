@@ -82,10 +82,6 @@ const AdminServices = () => {
     <div className="p-10 bg-[#f7fafc] min-h-[95vh]">
       <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#13274f]">Services</h1>
-          <div className="flex items-center gap-4">
-            <Mail className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
-            <Settings className="w-6 h-6 text-gray-500 cursor-pointer hover:text-gray-700" />
-          </div>
         </div>
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
